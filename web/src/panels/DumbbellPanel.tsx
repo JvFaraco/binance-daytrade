@@ -6,8 +6,8 @@ import * as fmt from "../app/format";
 import { tradeReturns } from "../engine/backtest";
 import { researchAtCost, summarize } from "../engine/research";
 import { splitCost, useSettings } from "../state/settings";
-import { useAnalysis } from "../state/stores";
-import { LiveDot, Panel, PanelState, SkeletonStack } from "../ui";
+import { useAnalysis, useMarket } from "../state/stores";
+import { LiveDot, NoData, Panel, PanelState, SkeletonStack } from "../ui";
 
 interface RowData {
   key: string;
@@ -27,6 +27,7 @@ export function DumbbellPanel() {
   const cost = useSettings((s) => s.cost_pct);
   const months = useSettings((s) => s.months);
   const targetR = useSettings((s) => s.target_r);
+  const offline = useMarket((m) => m.boot === "erro");
 
   const rows = useMemo<RowData[] | null>(() => {
     if (!research.raw) return null;
@@ -100,6 +101,8 @@ export function DumbbellPanel() {
     >
       {research.status === "error" ? (
         <PanelState kind="error" title="A pesquisa não rodou" detail={research.error} />
+      ) : !rows && offline ? (
+        <NoData />
       ) : !rows ? (
         <SkeletonStack lines={8} label="Calculando a pesquisa" />
       ) : (

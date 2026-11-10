@@ -9,7 +9,8 @@ export default defineConfig({
   build: {
     target: "es2022",
     sourcemap: false,
-    chunkSizeWarningLimit: 900,
+    // o pedaço da esfera (three.js + postprocessing) é carregado sob demanda, depois da primeira pintura
+    chunkSizeWarningLimit: 1100,
   },
   test: {
     environment: "node",

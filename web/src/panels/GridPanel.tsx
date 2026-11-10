@@ -4,8 +4,8 @@ import { type KeyboardEvent, useMemo, useState } from "react";
 import * as fmt from "../app/format";
 import { type ComboResult, DEFAULT_GRID, gridVerdict, summarizeCombo } from "../engine/backtest";
 import { MONTH_OPTIONS, README_MONTHS, splitCost, useSettings } from "../state/settings";
-import { useAnalysis } from "../state/stores";
-import { LiveDot, Meter, Panel, PanelState, Segmented } from "../ui";
+import { useAnalysis, useMarket } from "../state/stores";
+import { LiveDot, Meter, NoData, Panel, PanelState, Segmented } from "../ui";
 
 type View = "train" | "test";
 const COLS = DEFAULT_GRID.targets.length * DEFAULT_GRID.minRanges.length; // 12
@@ -26,6 +26,7 @@ export function GridPanel() {
   const months = useSettings((s) => s.months);
   const set = useSettings((s) => s.set);
   const symbol = useSettings((s) => s.symbol);
+  const offline = useMarket((m) => m.boot === "erro");
   const [view, setView] = useState<View>("train");
   const [cursor, setCursor] = useState<number | null>(null);
 
@@ -78,7 +79,9 @@ export function GridPanel() {
         </>
       }
     >
-      {grid.status === "error" || (hist.status === "error" && !results) ? (
+      {offline && !results ? (
+        <NoData />
+      ) : grid.status === "error" || (hist.status === "error" && !results) ? (
         <PanelState kind={(grid.error ?? hist.error ?? "").match(/418|429/) ? "limited" : "error"} title="A grade não rodou" detail={grid.error ?? hist.error} />
       ) : (
         <div className="grid" data-stale={stale} data-months={info ? shownMonths : 0} data-symbol={info ? shownSymbol : ""}>
@@ -111,7 +114,9 @@ export function GridPanel() {
                 const s = r[view];
                 const thin = s.trades < MIN_TRADES[view];
                 const v = s.sum_r;
-                const a = s.trades ? 0.12 + 0.78 * Math.min(1, Math.abs(v) / scale) : 0;
+                // teto de opacidade por cor: acima disso o número claro perde contraste AA sobre a célula
+                const cap = thin ? 0.22 : v > 0 ? 0.45 : 0.55;
+                const a = s.trades ? 0.1 + (cap - 0.1) * Math.min(1, Math.abs(v) / scale) : 0;
                 const rank = top.indexOf(i);
                 return (
                   <span

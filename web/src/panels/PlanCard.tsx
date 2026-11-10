@@ -3,8 +3,8 @@
 import * as fmt from "../app/format";
 import type { Check } from "../engine/risk";
 import { useSettings } from "../state/settings";
-import { useAnalysis } from "../state/stores";
-import { Badge, LiveDot, Panel, PanelState, SkeletonStack, Stat } from "../ui";
+import { useAnalysis, useMarket } from "../state/stores";
+import { Badge, LiveDot, NoData, Panel, PanelState, SkeletonStack, Stat } from "../ui";
 
 const LEVEL: Record<Check["level"], string> = { ok: "ok", warn: "aviso", block: "block" };
 
@@ -94,6 +94,7 @@ export function PlanCard() {
   const hist = useAnalysis((a) => a.history.status);
   const symbol = useSettings((s) => s.symbol);
   const stop = useSettings((s) => s.stop_rule);
+  const offline = useMarket((m) => m.boot === "erro");
   const p = (v: number) => fmt.price(v, rules?.tick);
   const tz = "BRT";
   return (
@@ -104,7 +105,9 @@ export function PlanCard() {
       state={plan ? <Badge tone="signal">{source === "live" ? "sessão atual" : `replay ${fmt.ddmm(plan.entry_time ?? plan.session_start)}`}</Badge> : <LiveDot state={hist === "loading" ? "busy" : "idle"} label={hist === "loading" ? "histórico" : "sem plano"} />}
     >
       {!plan ? (
-        hist === "loading" || (!note && hist !== "error") ? (
+        offline ? (
+          <NoData />
+        ) : hist === "loading" || (!note && hist !== "error") ? (
           <SkeletonStack lines={9} label="Montando o plano" />
         ) : (
           <PanelState kind="empty" title="Sem plano" detail={note ?? "Sem histórico para procurar um rompimento."} />

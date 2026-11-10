@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 import { useEffect } from "react";
 import { boot } from "./app/controller";
 import { Controls } from "./panels/Controls";
@@ -20,7 +20,8 @@ export function App() {
     void boot();
   }, []);
   return (
-    <motion.main className="board" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: STAGGER } } }}>
+    <LazyMotion features={domAnimation} strict>
+      <m.main className="board" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: STAGGER } } }}>
       <TopBar />
       <Controls />
       <Scanner />
@@ -33,6 +34,7 @@ export function App() {
       <DumbbellPanel />
       <ParetoPanel />
       <TapePanel />
-    </motion.main>
+      </m.main>
+    </LazyMotion>
   );
 }

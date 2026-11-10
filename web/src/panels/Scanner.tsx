@@ -1,7 +1,7 @@
 // Scanner ao vivo: os pares USDT líquidos e o estado do rompimento em cada um, calculado como scan.py.
 import { memo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { selectSymbol } from "../app/controller";
+import { boot as restart, selectSymbol } from "../app/controller";
 import * as fmt from "../app/format";
 import type { ScanResult } from "../engine/scan";
 import { useSettings } from "../state/settings";
@@ -91,9 +91,14 @@ export function Scanner() {
       {boot === "erro" ? (
         <PanelState
           kind={error?.includes("418") || error?.includes("429") ? "limited" : "error"}
-          title={error?.includes("418") || error?.includes("429") ? "A API limitou os pedidos" : "Sem acesso aos dados públicos"}
+          title={error?.includes("418") ? "A Binance bloqueou este IP por um tempo" : error?.includes("429") ? "A API limitou os pedidos" : "Sem acesso aos dados públicos"}
           detail={error}
-        />
+        >
+          <button type="button" className="btn" onClick={() => void restart()}>
+            tentar de novo
+          </button>
+          <span className="label">nenhum número é mostrado sem dado real</span>
+        </PanelState>
       ) : !ready ? (
         <>
           <div className="scan__boot label">{boot === "candles" ? `candles da sessão ${done}/${total}` : boot === "universo" ? "lista de pares (ticker 24h)" : "acertando o relógio com a Binance"}</div>

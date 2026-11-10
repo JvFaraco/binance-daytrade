@@ -36,39 +36,39 @@ function Telemetry() {
   const w = t.rest?.weight1m ?? 0;
   const limited = !!t.rest?.limitedUntil;
   return (
-    <dl className="tel">
-      <div className="tel__row">
-        <dt className="label">peso api 1 min</dt>
-        <dd className="num">
+    <ul className="tel" aria-label="Telemetria da página">
+      <li className="tel__row">
+        <span className="tel__k label">peso api 1 min</span>
+        <span className="tel__v num">
           {fmt.int(w)} <span className="tone-mute">/ {fmt.int(WEIGHT_LIMIT_1M)}</span>
-        </dd>
+        </span>
         <Meter value={w / WEIGHT_LIMIT_1M} tone={limited ? "neg" : "raw"} marks={[0.7]} label="Peso de API usado no último minuto" />
-        <dd className="tel__src label">{t.rest?.weightSource === "cabeçalho" ? "lido de X-MBX-USED-WEIGHT-1M" : "estimado: soma local dos pedidos"}</dd>
-        {limited ? <dd className="tel__warn">{t.rest?.banned ? "IP banido (418): parado até o prazo" : "a API pediu para esperar (429)"}</dd> : null}
-      </div>
-      <div className="tel__row tel__row--spark">
-        <dt className="label">latência do ws</dt>
-        <dd className="num">{t.wsLatency !== null ? fmt.num(t.wsLatency, 0) + " ms" : "—"}</dd>
+        <span className="tel__src label">{t.rest?.weightSource === "cabeçalho" ? "lido de X-MBX-USED-WEIGHT-1M" : "estimado: soma local dos pedidos"}</span>
+        {limited ? <span className="tel__warn">{t.rest?.banned ? "IP banido (418): parado até o prazo" : "a API pediu para esperar (429)"}</span> : null}
+      </li>
+      <li className="tel__row">
+        <span className="tel__k label">latência do ws</span>
+        <span className="tel__v num">{t.wsLatency !== null ? fmt.num(t.wsLatency, 0) + " ms" : "—"}</span>
         <Sparkline data={t.wsLatencyHistory} label="Latência do WebSocket no último minuto" min={0} />
-      </div>
-      <div className="tel__row tel__row--inline">
-        <dt className="label">mensagens ws</dt>
-        <dd className="num">{fmt.int(t.wsRate)}/s</dd>
-      </div>
-      <div className="tel__row tel__row--inline">
-        <dt className="label">candles em memória</dt>
-        <dd className="num">{fmt.int(t.sessionCandles + candlesHist)}</dd>
-      </div>
-      <div className="tel__row tel__row--inline">
-        <dt className="label">worker · {t.workerJob || "—"}</dt>
-        <dd className="num">{t.workerMs !== null ? fmt.num(t.workerMs, 0) + " ms" : "—"}</dd>
-      </div>
-      <div className="tel__row tel__row--spark">
-        <dt className="label">fps da interface</dt>
-        <dd className="num">{t.fps !== null ? fmt.num(t.fps, 0) : "—"}</dd>
+      </li>
+      <li className="tel__row">
+        <span className="tel__k label">mensagens ws</span>
+        <span className="tel__v num">{fmt.int(t.wsRate)}/s</span>
+      </li>
+      <li className="tel__row">
+        <span className="tel__k label">candles em memória</span>
+        <span className="tel__v num">{fmt.int(t.sessionCandles + candlesHist)}</span>
+      </li>
+      <li className="tel__row">
+        <span className="tel__k label">worker · {t.workerJob || "—"}</span>
+        <span className="tel__v num">{t.workerMs !== null ? fmt.num(t.workerMs, 0) + " ms" : "—"}</span>
+      </li>
+      <li className="tel__row">
+        <span className="tel__k label">fps da interface</span>
+        <span className="tel__v num">{t.fps !== null ? fmt.num(t.fps, 0) : "—"}</span>
         <Sparkline data={t.fpsHistory} label="Quadros por segundo no último minuto" min={0} max={Math.max(60, ...t.fpsHistory)} />
-      </div>
-    </dl>
+      </li>
+    </ul>
   );
 }
 

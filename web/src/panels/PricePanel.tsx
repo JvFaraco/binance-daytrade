@@ -6,7 +6,7 @@ import { HOUR, IV } from "../engine/core";
 import { STATUS_LABEL } from "../engine/plan";
 import { useSettings } from "../state/settings";
 import { useAnalysis, useMarket, useTelemetry, useTicks } from "../state/stores";
-import { LiveDot, Panel, SkeletonStack, Stat } from "../ui";
+import { LiveDot, NoData, Panel, SkeletonStack, Stat } from "../ui";
 import { type Draw, alpha, tokens, useCanvas } from "../ui/useCanvas";
 
 function Chart() {
@@ -240,6 +240,7 @@ export function PricePanel() {
   const range = useSettings((s) => s.range_minutes);
   const anchor = useSettings((s) => s.anchor_utc);
   const ready = useMarket((m) => m.boot === "pronto");
+  const offline = useMarket((m) => m.boot === "erro");
   const ws = useTelemetry((t) => t.wsStatus);
   return (
     <Panel
@@ -255,6 +256,8 @@ export function PricePanel() {
           </div>
           <Readout />
         </>
+      ) : offline ? (
+        <NoData />
       ) : (
         <SkeletonStack lines={7} label="Carregando candles" />
       )}

@@ -103,6 +103,39 @@
 .top__price {
   font-size: var(--fs-5);
   font-weight: 500;
+  min-width: 9ch;
+  text-align: right;
+}
+
+/* larguras reservadas: quando o preço e o estado chegam, a barra não muda de tamanho nem empurra a página */
+.top__change {
+  min-width: 11ch;
+}
+
+.top__ws {
+  min-width: 17ch;
+}
+
+@media (min-width: 1280px) {
+  .top {
+    flex-wrap: nowrap;
+    height: 40px;
+  }
+
+  .top__brand {
+    overflow: hidden;
+  }
+
+  .top__right {
+    flex-wrap: nowrap;
+    flex: none;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1519px) {
+  .top__brand .label {
+    display: none;
+  }
 }
 
 .top__right {

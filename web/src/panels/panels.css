@@ -356,6 +356,10 @@
   gap: 2px;
 }
 
+.sphere__hover .label {
+  color: var(--tx-2);
+}
+
 .sphere__hoverR {
   display: flex;
   align-items: baseline;
@@ -496,7 +500,7 @@
 
 .cost__marks {
   position: relative;
-  height: 16px;
+  height: 24px;
   margin: 0 6px;
 }
 
@@ -504,8 +508,10 @@
   position: absolute;
   top: 0;
   transform: translateX(-50%);
+  min-width: 24px;
+  height: 24px;
   font-size: var(--fs-1);
-  color: var(--tx-3);
+  color: var(--tx-2);
   white-space: nowrap;
   padding: 0 2px;
   border-radius: var(--radius);
@@ -835,7 +841,6 @@
 /* poucos trades: o número existe, mas não sustenta conclusão */
 .grid__cell[data-thin="true"] {
   border: 1px dashed var(--line-2);
-  color: var(--tx-2);
 }
 
 .grid__cell[data-top="true"] {
@@ -1210,12 +1215,12 @@
   font-size: var(--fs-2);
 }
 
-.tel__row dt {
+.tel__k {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tel__row dd {
+.tel__v {
   text-align: right;
 }
 

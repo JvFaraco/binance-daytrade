@@ -485,6 +485,7 @@ export async function boot(): Promise<void> {
   const s = useSettings.getState();
   const cfg = configFrom(s);
   setStage("scan", { status: "running", note: "acertando o relógio", progress: null });
+  useMarket.setState({ boot: "relógio", error: null });
   try {
     const time = await engine({ type: "time" });
     live.offset = time.data.offset;
@@ -519,6 +520,7 @@ export async function boot(): Promise<void> {
   } catch (e) {
     booted = false;
     useMarket.setState({ boot: "erro", error: msg(e) });
+    if (!stream) useTelemetry.setState({ wsStatus: "parado" });
     setStage("scan", { status: "error", ms: null, note: msg(e), progress: null });
   }
 

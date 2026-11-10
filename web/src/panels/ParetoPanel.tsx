@@ -1,12 +1,13 @@
 // Pareto dos sinais rejeitados: por que cada sessão do período não virou trade, com o motivo
 // que o motor devolve em cada etapa (scan, plan, size, risk).
 import * as fmt from "../app/format";
-import { useAnalysis } from "../state/stores";
-import { LiveDot, Panel, PanelState, SkeletonStack } from "../ui";
+import { useAnalysis, useMarket } from "../state/stores";
+import { LiveDot, NoData, Panel, PanelState, SkeletonStack } from "../ui";
 
 export function ParetoPanel() {
   const rej = useAnalysis((a) => a.rejections);
   const rep = rej.report;
+  const offline = useMarket((m) => m.boot === "erro");
   const rejected = rep ? rep.sessions - rep.accepted : 0;
   // contagem acumulada até cada motivo (para o traço do Pareto)
   const cumulative = rep ? rep.reasons.map((_, i) => rep.reasons.slice(0, i + 1).reduce((a, r) => a + r.count, 0)) : [];
@@ -19,6 +20,8 @@ export function ParetoPanel() {
     >
       {rej.status === "error" ? (
         <PanelState kind="error" title="Não calculado" detail="O histórico do par não está disponível." />
+      ) : !rep && offline ? (
+        <NoData />
       ) : !rep ? (
         <SkeletonStack lines={8} label="Classificando as sessões" />
       ) : rep.sessions === 0 ? (

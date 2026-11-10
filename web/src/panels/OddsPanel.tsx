@@ -3,8 +3,8 @@
 import { useTmDerived } from "../app/derived";
 import * as fmt from "../app/format";
 import { COST_MAX, DEFAULT_COST, splitCost, useSettings } from "../state/settings";
-import { useAnalysis } from "../state/stores";
-import { LiveDot, Meter, Panel, SkeletonStack, Stat, Tooltip } from "../ui";
+import { useAnalysis, useMarket } from "../state/stores";
+import { LiveDot, Meter, NoData, Panel, SkeletonStack, Stat, Tooltip } from "../ui";
 
 const MARKS = [
   { v: 0, label: "zero", title: "Sem custo nenhum: o resultado bruto" },
@@ -39,7 +39,7 @@ function CostControl() {
       />
       <div className="cost__marks">
         {MARKS.map((m) => (
-          <button key={m.v} type="button" className="cost__mark" style={{ left: (m.v / COST_MAX) * 100 + "%" }} data-on={Math.abs(cost - m.v) < 1e-9} title={m.title} aria-label={m.title} onClick={() => set({ cost_pct: m.v })}>
+          <button key={m.v} type="button" className="cost__mark" style={{ left: (m.v / COST_MAX) * 100 + "%" }} data-on={Math.abs(cost - m.v) < 1e-9} title={m.title} onClick={() => set({ cost_pct: m.v })}>
             {m.label}
           </button>
         ))}
@@ -54,6 +54,7 @@ function CostControl() {
 export function OddsPanel() {
   const d = useTmDerived();
   const status = useAnalysis((a) => a.tmStatus);
+  const offline = useMarket((m) => m.boot === "erro");
   const tone = (v: number) => (v > 0 ? "pos" : v < 0 ? "neg" : "neutral");
   return (
     <Panel area="stats" title="Odds do plano" sub="líquido de taxa e slippage · não é previsão" state={<LiveDot state={status === "loading" ? "busy" : d ? "done" : "idle"} label={d ? "calculado" : status === "loading" ? "calculando" : "—"} />}>
@@ -105,6 +106,8 @@ export function OddsPanel() {
               {d.history.fired && d.history.fired < 30 ? <span className="tone-mute"> · amostra pequena</span> : null}
             </p>
           </>
+        ) : offline ? (
+          <NoData />
         ) : (
           <SkeletonStack lines={7} label="Calculando as odds" />
         )}

@@ -1,6 +1,6 @@
 // Componentes base do painel: Panel, Stat, Sparkline, Meter, Badge, Tooltip, LiveDot, Skeleton
 // e os controles. Todo painel é montado com eles.
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { type KeyboardEvent, type ReactNode, memo, useId, useState } from "react";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { EASE_OUT, T_PANEL } from "./motion";
@@ -50,7 +50,7 @@ export function Panel({ area, title, sub, state, children, pad = false, collapse
   const reduce = useReducedMotion();
   const id = useId();
   return (
-    <motion.section
+    <m.section
       className={"panel" + (className ? " " + className : "")}
       style={{ gridArea: area }}
       data-area={area}
@@ -71,7 +71,7 @@ export function Panel({ area, title, sub, state, children, pad = false, collapse
         </button>
       </header>
       <div className={"panel__body" + (pad ? " panel__body--pad" : "")}>{children}</div>
-    </motion.section>
+    </m.section>
   );
 }
 
@@ -148,6 +148,11 @@ export function PanelState({ kind, title, detail, children }: PanelStateProps) {
       {children}
     </div>
   );
+}
+
+/** Painel que depende do scanner quando a partida falhou: estado explícito, nunca um esqueleto eterno. */
+export function NoData() {
+  return <PanelState kind="empty" title="Sem dados" detail="Este painel depende dos dados públicos da Binance, que não carregaram. O motivo está no painel Scanner." />;
 }
 
 // ------------------------------------------------------------ Meter

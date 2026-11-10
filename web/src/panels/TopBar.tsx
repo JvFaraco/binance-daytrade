@@ -39,11 +39,13 @@ export function TopBar() {
         <span className="top__price tone-raw">
           <AnimatedNumber value={price} format={(v) => fmt.num(v, dec)} />
         </span>
-        {change !== undefined ? <span className="tone-dim num">{fmt.signedPct(change)} 24h</span> : null}
+        <span className="top__change tone-dim num">{change !== undefined ? `${fmt.signedPct(change)} 24h` : ""}</span>
       </div>
       <div className="top__right">
         <Clock />
-        <LiveDot state={ws === "ao vivo" ? "live" : ws === "parado" ? "error" : "busy"} label={`ws ${ws}`} />
+        <span className="top__ws">
+          <LiveDot state={ws === "ao vivo" ? "live" : ws === "parado" ? "error" : "busy"} label={`ws ${ws}`} />
+        </span>
         <Badge tone="signal">somente análise — nenhuma ordem é enviada</Badge>
       </div>
     </header>

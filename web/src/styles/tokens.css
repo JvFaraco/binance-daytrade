@@ -2,7 +2,7 @@
    Regra das cores: cada acento tem uma função só e nunca é usado como enfeite.
      âmbar        = sinal / seleção / foco
      verde-água   = resultado líquido positivo
-     vermelho     = resultado líquido negativo
+     vermelho     = resultado líquido negativo e recusa do motor (erro, BLOCK do risk)
      azul frio    = dado bruto, neutro (preço, candle, volume, bruto antes de custo) */
 :root {
   color-scheme: dark;

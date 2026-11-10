@@ -1,21 +1,29 @@
 // Visualização central: os replays do Time Machine como fios numa esfera.
-import { type KeyboardEvent, Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Component, type KeyboardEvent, type ReactNode, Suspense, lazy, useEffect, useRef, useState } from "react";
 import * as fmt from "../app/format";
 import { netR } from "../engine/core";
 import { OUTCOME_STOP, OUTCOME_TARGET } from "../engine/timemachine";
 import { splitCost, useSettings } from "../state/settings";
-import { useAnalysis } from "../state/stores";
+import { useAnalysis, useMarket } from "../state/stores";
 import { useSphereHover } from "../sphere/hover";
-import { Badge, LiveDot, Meter, Panel, PanelState, SkeletonStack } from "../ui";
+import { Badge, LiveDot, Meter, NoData, Panel, PanelState, SkeletonStack } from "../ui";
 
 const Scene = lazy(() => import("../sphere/SphereScene"));
 
-function webglOk(): boolean {
-  try {
-    const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") || c.getContext("webgl"));
-  } catch {
-    return false;
+/**
+ * Se o WebGL não existir ou a cena falhar, mostra o estado em vez de derrubar o painel.
+ * (Sondar o WebGL na montagem custaria criar um contexto na thread da interface sem necessidade.)
+ */
+class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) {
+      return <PanelState kind="error" title="WebGL indisponível" detail="A esfera precisa de WebGL. Os números ao lado continuam valendo: eles não dependem do desenho." />;
+    }
+    return this.props.children;
   }
 }
 
@@ -58,10 +66,10 @@ export function SpherePanel() {
   const note = useAnalysis((a) => a.planNote);
   const hist = useAnalysis((a) => a.history);
   const symbol = useSettings((s) => s.symbol);
+  const offline = useMarket((m) => m.boot === "erro");
   const wrap = useRef<HTMLDivElement>(null);
   const labels = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(true);
-  const [gl] = useState(webglOk);
 
   // só desenha com o painel na tela e a aba visível
   useEffect(() => {
@@ -124,11 +132,13 @@ export function SpherePanel() {
         aria-label={tm ? `Esfera com ${fmt.int(r?.sphere.drawn ?? 0)} replays do plano. Use as setas esquerda e direita para percorrer os replays; Esc limpa a seleção.` : "Esfera do Time Machine"}
         onKeyDown={onKey}
       >
-        {tm && r && gl ? (
+        {tm && r ? (
           <div className="sphere__stage">
-            <Suspense fallback={<SkeletonStack lines={6} label="Carregando a visualização 3D" />}>
-              <Scene buffers={r.sphere} k={k} targetR={tm.plan.target_r} active={active} labels={labels} />
-            </Suspense>
+            <SceneBoundary>
+              <Suspense fallback={<SkeletonStack lines={6} label="Carregando a visualização 3D" />}>
+                <Scene buffers={r.sphere} k={k} targetR={tm.plan.target_r} active={active} labels={labels} />
+              </Suspense>
+            </SceneBoundary>
             <div className="sphere__rings" ref={labels} aria-hidden="true">
               <span className="sphere__ring tone-pos" data-ring="target">
                 alvo {fmt.rr(tm.plan.target_r, 1)}
@@ -143,13 +153,13 @@ export function SpherePanel() {
             </div>
           </div>
         ) : null}
-        {tm && r && !gl ? <PanelState kind="error" title="WebGL indisponível" detail="A esfera precisa de WebGL. Os números ao lado continuam valendo: eles não dependem do desenho." /> : null}
         {!tm && status === "error" ? <PanelState kind="error" title="O Time Machine não rodou" detail={error} /> : null}
         {!tm && status !== "error" && hist.status === "error" ? <PanelState kind={hist.error?.includes("418") || hist.error?.includes("429") ? "limited" : "error"} title="Sem histórico para simular" detail={hist.error} /> : null}
         {!tm && status !== "error" && hist.status !== "error" && !busy && !plan && note ? (
           <PanelState kind="empty" title="Sem plano para simular" detail={`${note} Também não há rompimento no histórico carregado com estes controles.`} />
         ) : null}
-        {!tm && status !== "error" && hist.status !== "error" && (busy || (!plan && !note)) ? (
+        {!tm && offline ? <NoData /> : null}
+        {!tm && !offline && status !== "error" && hist.status !== "error" && (busy || (!plan && !note)) ? (
           <div className="sphere__loading">
             <SkeletonStack lines={5} label="Carregando o Time Machine" />
             <div className="sphere__loadingBar">
