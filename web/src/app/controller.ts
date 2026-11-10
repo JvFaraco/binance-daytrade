@@ -12,6 +12,7 @@ import { type McRaw, summarizeMc, verdict } from "../engine/timemachine";
 import { engine, onRestTelemetry } from "../data/engineClient";
 import { unpackBars } from "../data/pack";
 import { MarketStream } from "../data/stream";
+import { useMode } from "../state/mode";
 import { type Settings, configFrom, useSettings } from "../state/settings";
 import { type TmState, setStage, useAnalysis, useMarket, useTelemetry, useTicks } from "../state/stores";
 import { TAPE_MAX, live, now, upsertBar } from "./live";
@@ -32,8 +33,28 @@ export const SEASON_SELL = 23;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const fmtMs = (ms: number) => fmt.num(ms, ms < 10 ? 1 : 0);
 
-/** Quantos fios a esfera desenha: todos no desktop, menos em telas pequenas ou GPUs modestas. */
+const isPro = () => useMode.getState().mode === "pro";
+
+/**
+ * O Pro acompanha todos os pares do scanner; o Lite, só o par escolhido. Depois que o Pro foi
+ * aberto uma vez nesta visita os dados já estão aqui, então o escopo largo continua valendo.
+ */
+let wide = false;
+
+function scopeSymbols(): string[] {
+  const sel = useSettings.getState().symbol;
+  if (!wide) return [sel];
+  const all = useMarket.getState().universe.map((u) => u.symbol);
+  if (!all.includes(sel)) all.push(sel);
+  return all;
+}
+
+/**
+ * Quantos fios a esfera desenha: todos no desktop, menos em telas pequenas ou GPUs modestas.
+ * No Lite a esfera não existe: zero fios, e o worker nem monta os buffers dela.
+ */
 export function sphereMaxDraw(): number {
+  if (!isPro()) return 0;
   if (typeof window === "undefined") return 2500;
   const small = window.matchMedia("(max-width: 720px)").matches;
   const cores = navigator.hardwareConcurrency || 4;
@@ -130,15 +151,27 @@ function startStream(): void {
  * Depois de uma queda do WebSocket: os candles que fecharam no intervalo não chegaram.
  * Busca de novo os candles de cada par e refaz o scanner, para o sinal não sair de dado com buraco.
  */
+/** Busca os candles dos pares que ainda não estão em memória. */
+async function ensureBars(symbols: string[], onProgress?: (done: number, total: number) => void): Promise<void> {
+  const missing = symbols.filter((sym) => !live.bars.has(sym));
+  if (!missing.length) return;
+  // 300 candles de 5m = 25 h: cobre a sessão atual de qualquer âncora (scan.py pede só do início da sessão;
+  // o sinal ignora o que vem antes, então o resultado é o mesmo)
+  const sb = await engine({ type: "sessionBars", symbols: missing, limit: 300 }, (p) => onProgress?.(p.done, p.total));
+  for (const [sym, packed] of Object.entries(sb.data.bars)) {
+    const bars = unpackBars(packed);
+    live.bars.set(sym, bars);
+    if (bars.length) live.last.set(sym, bars[bars.length - 1].c);
+  }
+  pricesDirty = true;
+}
+
 let resyncing = false;
 async function resync(): Promise<void> {
   if (resyncing) return;
   resyncing = true;
   try {
-    const symbols = useMarket.getState().universe.map((u) => u.symbol);
-    const sel = useSettings.getState().symbol;
-    if (!symbols.includes(sel)) symbols.push(sel);
-    const sb = await engine({ type: "sessionBars", symbols, limit: 300 });
+    const sb = await engine({ type: "sessionBars", symbols: scopeSymbols(), limit: 300 });
     for (const [sym, packed] of Object.entries(sb.data.bars)) {
       const fresh = unpackBars(packed);
       const last = live.bars.get(sym);
@@ -165,16 +198,8 @@ async function refreshUniverse(): Promise<void> {
     const tick = await engine({ type: "tickers", quote: cfg.quote, ttlMinutes: cfg.universe_cache_minutes });
     const universe = pickUniverse(tick.data.tickers, cfg, UNIVERSE_TOP);
     if (!universe.length) return;
-    const missing = universe.map((u) => u.symbol).filter((s) => !live.bars.has(s));
-    if (missing.length) {
-      const sb = await engine({ type: "sessionBars", symbols: missing, limit: 300 });
-      for (const [sym, packed] of Object.entries(sb.data.bars)) {
-        const bars = unpackBars(packed);
-        live.bars.set(sym, bars);
-        if (bars.length) live.last.set(sym, bars[bars.length - 1].c);
-      }
-    }
     useMarket.setState({ universe, universeAt: tick.data.at, universeCached: tick.data.fromCache });
+    await ensureBars(scopeSymbols());
     syncStreams();
     runScan();
   } catch {
@@ -184,11 +209,10 @@ async function refreshUniverse(): Promise<void> {
 
 function syncStreams(): void {
   if (!stream) return;
-  const { universe } = useMarket.getState();
   const sel = useSettings.getState().symbol;
-  const names = new Set(universe.map((u) => u.symbol.toLowerCase() + "@kline_5m"));
-  names.add(sel.toLowerCase() + "@kline_5m");
-  names.add(sel.toLowerCase() + "@aggTrade");
+  const names = new Set(scopeSymbols().map((sym) => sym.toLowerCase() + "@kline_5m"));
+  // a fita de negócios só existe no Pro
+  if (wide) names.add(sel.toLowerCase() + "@aggTrade");
   stream.setStreams(names);
 }
 
@@ -204,12 +228,14 @@ function countSessionCandles(): void {
 
 /** O scanner: exatamente scan.py (orb_signal em cada par, filter_hits, explain_filtered). */
 export function runScan(): void {
-  const { universe } = useMarket.getState();
-  if (!universe.length) return;
+  const all = useMarket.getState().universe;
+  if (!all.length) return;
   const s = useSettings.getState();
   const cfg = configFrom(s);
   const t = now();
   const t0 = performance.now();
+  const inScope = new Set(scopeSymbols());
+  const universe = all.filter((u) => inScope.has(u.symbol));
   const results = scanOrb(universe, t, cfg, (sym) => closedOnly(live.bars.get(sym) ?? [], t));
   const hits = filterHits(results, cfg).map((r) => r.symbol);
   const discarded = explainFiltered(results, cfg);
@@ -217,7 +243,7 @@ export function runScan(): void {
   const bySymbol: Record<string, (typeof results)[number]> = {};
   for (const r of results) bySymbol[r.symbol] = r;
   useMarket.setState((m) => ({ results, bySymbol, counts: counts(results), hits, discarded, scanMs: ms, scannedAt: t, scans: m.scans + 1 }));
-  setStage("scan", { status: "done", ms, note: `${results.length} pares · ${hits.length} ${hits.length === 1 ? "rompimento válido" : "rompimentos válidos"}`, progress: null });
+  setStage("scan", { status: "done", ms, note: `${results.length} ${results.length === 1 ? "par" : "pares"} · ${hits.length} ${hits.length === 1 ? "rompimento válido" : "rompimentos válidos"}`, progress: null });
   countSessionCandles();
   // o sinal do par escolhido mudou? refaz o plano
   const sig = orbSignal(closedOnly(live.bars.get(s.symbol) ?? [], t), t, cfg);
@@ -235,6 +261,7 @@ export function runScan(): void {
 let seq = 0;
 let gridKey = "";
 let settingsKey = "";
+let researchKey = "";
 
 async function loadHistoryFor(symbol: string, months: number, token: number): Promise<boolean> {
   const a = useAnalysis.getState();
@@ -389,36 +416,43 @@ async function timeMachineStage(token: number, s: Settings, plan: Plan): Promise
 
 async function gridStage(token: number, s: Settings, cfg: Config): Promise<void> {
   const key = `${s.symbol}|${s.months}`;
-  if (key === gridKey && useAnalysis.getState().grid.status === "ready") return;
-  gridKey = key;
-  const combos = makeGrid(DEFAULT_GRID.anchors, DEFAULT_GRID.ranges, DEFAULT_GRID.stops, DEFAULT_GRID.targets, DEFAULT_GRID.minRanges);
-  useAnalysis.setState({ grid: { status: "loading", done: 0, total: combos.length, result: null, error: null, ms: null, symbol: s.symbol, months: s.months } });
-  useAnalysis.setState({ research: { status: "loading", raw: null, error: null, ms: null } });
-  try {
-    const { data, ms } = await engine(
-      { type: "grid", symbol: s.symbol, entryBufferPct: cfg.entry_buffer_pct, combos, split: GRID_SPLIT, entryWindow: cfg.entry_window_minutes, flatBy: cfg.flat_by_hours, maxChase: cfg.max_chase_pct },
-      (p) => token === seq && useAnalysis.setState((st) => ({ grid: { ...st.grid, done: p.done, total: p.total } })),
-    );
-    if (token !== seq) return;
-    useAnalysis.setState({ grid: { status: "ready", done: combos.length, total: combos.length, result: data, error: null, ms, symbol: s.symbol, months: s.months } });
-    useTelemetry.setState({ workerMs: ms, workerJob: `grade (${combos.length} combinações)` });
-  } catch (e) {
-    if (token !== seq) return;
-    gridKey = "";
-    useAnalysis.setState((st) => ({ grid: { ...st.grid, status: "error", error: msg(e) } }));
+  if (key !== gridKey || useAnalysis.getState().grid.status !== "ready") {
+    gridKey = key;
+    const combos = makeGrid(DEFAULT_GRID.anchors, DEFAULT_GRID.ranges, DEFAULT_GRID.stops, DEFAULT_GRID.targets, DEFAULT_GRID.minRanges);
+    useAnalysis.setState({ grid: { status: "loading", done: 0, total: combos.length, result: null, error: null, ms: null, symbol: s.symbol, months: s.months } });
+    try {
+      const { data, ms } = await engine(
+        { type: "grid", symbol: s.symbol, entryBufferPct: cfg.entry_buffer_pct, combos, split: GRID_SPLIT, entryWindow: cfg.entry_window_minutes, flatBy: cfg.flat_by_hours, maxChase: cfg.max_chase_pct },
+        (p) => token === seq && useAnalysis.setState((st) => ({ grid: { ...st.grid, done: p.done, total: p.total } })),
+      );
+      if (token !== seq) return;
+      useAnalysis.setState({ grid: { status: "ready", done: combos.length, total: combos.length, result: data, error: null, ms, symbol: s.symbol, months: s.months } });
+      useTelemetry.setState({ workerMs: ms, workerJob: `grade (${combos.length} combinações)` });
+    } catch (e) {
+      if (token !== seq) return;
+      gridKey = "";
+      useAnalysis.setState((st) => ({ grid: { ...st.grid, status: "error", error: msg(e) } }));
+    }
   }
+  // a pesquisa (sazonalidade, Donchian, buy & hold) só aparece no Pro: no Lite ela nem é calculada
+  if (!isPro() || researchKey === key) return;
+  researchKey = key;
+  useAnalysis.setState({ research: { status: "loading", raw: null, error: null, ms: null } });
   try {
     const { data, ms } = await engine({ type: "research", symbol: s.symbol, lookbacks: RESEARCH_LOOKBACKS, buyH: SEASON_BUY, sellH: SEASON_SELL });
     if (token !== seq) return;
     useAnalysis.setState({ research: { status: "ready", raw: data, error: null, ms } });
   } catch (e) {
     if (token !== seq) return;
+    researchKey = "";
     useAnalysis.setState({ research: { status: "error", raw: null, error: msg(e), ms: null } });
   }
 }
 
 /** O que depende dos controles da regra (âncora, faixa, stop, alvo) no período inteiro. */
 async function ruleStage(token: number, s: Settings, cfg: Config): Promise<void> {
+  // bruto x líquido do rompimento e o Pareto dos rejeitados são painéis do Pro
+  if (!isPro()) return;
   const key = `${s.symbol}|${s.months}|${s.anchor_utc}|${s.range_minutes}|${s.stop_rule}|${s.target_r}|${s.account}|${s.max_loss_per_trade}|${useAnalysis.getState().rules ? 1 : 0}`;
   if (key === settingsKey) return;
   settingsKey = key;
@@ -452,10 +486,11 @@ export async function analyze(): Promise<void> {
   if (periodChanged) {
     // pesquisa e motivos de rejeição são do período: saem da tela até o novo cálculo chegar
     settingsKey = "";
+    researchKey = "";
     useAnalysis.setState({
-      research: { status: "loading", raw: null, error: null, ms: null },
-      breakout: { status: "loading", trades: null, sessions: 0 },
-      rejections: { status: "loading", report: null },
+      research: { status: "idle", raw: null, error: null, ms: null },
+      breakout: { status: "idle", trades: null, sessions: 0 },
+      rejections: { status: "idle", report: null },
     });
   }
   if (symbolChanged) {
@@ -512,8 +547,14 @@ function wireSettings(): void {
     if (cur.symbol !== prev.symbol) {
       lastSignalKey = "";
       syncStreams();
-      runScan();
-      void analyze();
+      void ensureBars([cur.symbol])
+        .catch(() => {})
+        .then(() => {
+          if (useSettings.getState().symbol !== cur.symbol) return;
+          useTicks.setState((t) => ({ ...t, bars: t.bars + 1 }));
+          runScan();
+          void analyze();
+        });
       return;
     }
     const rule = cur.anchor_utc !== prev.anchor_utc || cur.range_minutes !== prev.range_minutes || cur.stop_rule !== prev.stop_rule || cur.target_r !== prev.target_r;
@@ -546,10 +587,50 @@ function wireSettings(): void {
   });
 }
 
+/**
+ * Abrir o Pro: carrega o que o Lite não precisou (candles dos outros pares, fita, esfera,
+ * pesquisa e Pareto), sem recarregar a página. Os números que já estavam na tela não mudam:
+ * os replays são refeitos com a mesma seed só para gravar os caminhos da esfera.
+ */
+let widening: Promise<void> | null = null;
+export function ensurePro(): Promise<void> {
+  if (useMarket.getState().boot !== "pronto") return Promise.resolve();
+  if (widening) return widening;
+  widening = (async () => {
+    try {
+      if (!wide) {
+        wide = true;
+        await ensureBars(scopeSymbols(), (done, total) => useMarket.setState({ bootDone: done, bootTotal: total }));
+        syncStreams();
+        lastSignalKey = "";
+        runScan();
+      }
+      const a = useAnalysis.getState();
+      const needs = (a.tm && !a.tm.result.sphere) || a.research.status === "idle" || a.rejections.status === "idle";
+      if (needs) await analyze();
+    } catch {
+      // sem rede agora: o scanner mostra o que tem; a próxima troca tenta de novo
+    } finally {
+      widening = null;
+    }
+  })();
+  return widening;
+}
+
+let modeWired = false;
+function wireMode(): void {
+  if (modeWired) return;
+  modeWired = true;
+  useMode.subscribe((cur, prev) => {
+    if (cur.mode === "pro" && prev.mode !== "pro") void ensurePro();
+  });
+}
+
 export async function boot(): Promise<void> {
   if (booted) return;
   booted = true;
   wireSettings();
+  wireMode();
   onRestTelemetry((rest) => useTelemetry.setState({ rest }));
   const s = useSettings.getState();
   const cfg = configFrom(s);
@@ -568,24 +649,20 @@ export async function boot(): Promise<void> {
     useMarket.setState({ universe, universeAt: tick.data.at, universeCached: tick.data.fromCache, boot: "candles", bootTotal: universe.length });
     if (!universe.some((u) => u.symbol === s.symbol)) useSettings.getState().set({ symbol: universe[0].symbol });
 
-    // 300 candles de 5m = 25 h: cobre a sessão atual de qualquer âncora (scan.py pede só do início da sessão;
-    // o sinal ignora o que vem antes, então o resultado é o mesmo)
-    const symbols = universe.map((u) => u.symbol);
-    const sb = await engine({ type: "sessionBars", symbols, limit: 300 }, (p) => {
-      useMarket.setState({ bootDone: p.done, bootTotal: p.total });
-      setStage("scan", { status: "running", note: "candles da sessão", progress: p.total ? p.done / p.total : 0 });
+    // Pro: candles de todos os pares do scanner. Lite: só os do par escolhido.
+    wide = isPro();
+    await ensureBars(scopeSymbols(), (done, total) => {
+      useMarket.setState({ bootDone: done, bootTotal: total });
+      setStage("scan", { status: "running", note: "candles da sessão", progress: total ? done / total : 0 });
     });
-    for (const [sym, packed] of Object.entries(sb.data.bars)) {
-      const bars = unpackBars(packed);
-      live.bars.set(sym, bars);
-      if (bars.length) live.last.set(sym, bars[bars.length - 1].c);
-    }
     useMarket.setState({ boot: "pronto", error: null, prices: Object.fromEntries(live.last) });
     useTicks.setState((t) => ({ ...t, bars: t.bars + 1 }));
     startStream();
     syncStreams();
     runScan();
     void analyze();
+    // o modo pode ter virado Pro enquanto a partida ainda carregava como Lite
+    if (isPro() && !wide) void ensurePro();
   } catch (e) {
     booted = false;
     useMarket.setState({ boot: "erro", error: msg(e) });

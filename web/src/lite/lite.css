@@ -1,0 +1,364 @@
+/* Modo Lite: uma coluna de leitura, com os mesmos tokens e os mesmos componentes do Pro.
+   Texto maior e frases inteiras; nenhuma cor nova. */
+.board[data-mode="lite"] {
+  max-width: 920px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  grid-template-areas:
+    "top     top"
+    "verdict verdict"
+    "chances cost"
+    "vary    vary"
+    "now     now"
+    "foot    foot";
+}
+
+/* a barra do Lite é estreita: quebra em duas linhas de propósito, com altura estável */
+.board[data-mode="lite"] .top {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 76px;
+  row-gap: var(--s-1);
+}
+
+.board[data-mode="lite"] .top__brand .label,
+.board[data-mode="lite"] .top__ws {
+  display: none;
+}
+
+.board[data-mode="lite"] .top__right {
+  flex-wrap: wrap;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.board[data-mode="lite"] .panel__title {
+  font-size: var(--fs-2);
+}
+
+.lite__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  min-width: 0;
+  flex: 1;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+/* alturas reservadas: quando os números chegam, os blocos de baixo não pulam */
+.board[data-mode="lite"] [data-area="verdict"] {
+  min-height: 232px;
+}
+
+.board[data-mode="lite"] [data-area="chances"],
+.board[data-mode="lite"] [data-area="cost"] {
+  min-height: 348px;
+}
+
+.board[data-mode="lite"] [data-area="vary"] {
+  min-height: 308px;
+}
+
+.board[data-mode="lite"] [data-area="now"] {
+  min-height: 400px;
+}
+
+/* resultado de outro período ou par ainda na tela enquanto o novo carrega */
+.lite__body[data-stale="true"] .lite__counts,
+.lite__body[data-stale="true"] > .lite__text {
+  opacity: 0.35;
+}
+
+.lite__title {
+  font-size: var(--fs-5);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--tx-1);
+  padding-left: var(--s-3);
+  border-left: 3px solid var(--neg);
+}
+
+.lite__title[data-tone="mixed"] {
+  border-left-color: var(--signal);
+}
+
+.lite__hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3) var(--s-6);
+}
+
+.lite__hero .lite__text {
+  flex: 1 1 280px;
+}
+
+.lite__text {
+  font-size: var(--fs-4);
+  line-height: 1.55;
+  color: var(--tx-1);
+  overflow-wrap: anywhere;
+}
+
+.lite__text b {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lite__text--dim {
+  font-size: var(--fs-3);
+  color: var(--tx-2);
+}
+
+.lite__text--warn {
+  font-size: var(--fs-3);
+  color: var(--signal);
+}
+
+.lite__rule {
+  font-size: var(--fs-2);
+  line-height: 1.5;
+  color: var(--tx-3);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-1);
+}
+
+.lite__bar {
+  height: 10px;
+}
+
+.lite__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  font-size: var(--fs-4);
+  line-height: 1.5;
+}
+
+.lite__list b {
+  display: inline-block;
+  min-width: 6ch;
+  color: var(--raw);
+}
+
+/* o mesmo tom de cada trecho da barra acima */
+.lite__sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--s-2);
+  border-radius: var(--radius);
+  background: var(--raw);
+}
+
+.lite__sw[data-k="open"] {
+  opacity: 0.45;
+}
+
+.lite__sw[data-k="stop"] {
+  opacity: 0.22;
+}
+
+.lite__body .cost {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.lite__money {
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-1);
+}
+
+.lite__counts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin: 0;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.lite__counts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3);
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius);
+}
+
+.lite__counts dt {
+  font-size: var(--fs-4);
+  line-height: 1.5;
+  min-width: 0;
+}
+
+.lite__counts dd {
+  margin: 0;
+  flex: none;
+  font-size: var(--fs-5);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lite__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.lite__progress .label {
+  white-space: normal;
+}
+
+.lite__period {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-1);
+}
+
+.lite__period .seg {
+  flex: none;
+}
+
+.lite__period .seg__opt,
+.lite__nowHead .input {
+  height: 28px;
+}
+
+.lite__period .lite__text {
+  flex: 1 1 240px;
+}
+
+.lite__nowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3) var(--s-4);
+}
+
+.lite__nowHead .lite__text {
+  flex: 1 1 260px;
+}
+
+.lite__chart {
+  position: relative;
+  height: 260px;
+}
+
+.lite__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+
+.lite__glossary summary {
+  cursor: pointer;
+  font-size: var(--fs-4);
+  font-weight: 700;
+  padding: var(--s-1) 0;
+}
+
+.lite__glossary dl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin: var(--s-3) 0 0;
+}
+
+.lite__glossary dt {
+  font-size: var(--fs-3);
+  font-weight: 700;
+  color: var(--signal);
+}
+
+.lite__glossary dd {
+  margin: 2px 0 0;
+  font-size: var(--fs-3);
+  line-height: 1.55;
+  color: var(--tx-2);
+}
+
+.lite__more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-1);
+}
+
+.lite__more .lite__text {
+  flex: 1 1 320px;
+}
+
+.lite__more .btn {
+  height: 32px;
+  flex: none;
+}
+
+/* celular: uma coluna só; os blocos do Lite ficam sempre abertos (são poucos e curtos) */
+@media (max-width: 719px) {
+  .board[data-mode="lite"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "top"
+      "verdict"
+      "chances"
+      "cost"
+      "vary"
+      "now"
+      "foot";
+  }
+
+  .board[data-mode="lite"] .panel__toggle {
+    display: none;
+  }
+
+  .board[data-mode="lite"] [data-area="verdict"] {
+    min-height: 420px;
+  }
+
+  .board[data-mode="lite"] [data-area="chances"] {
+    min-height: 340px;
+  }
+
+  .board[data-mode="lite"] [data-area="cost"] {
+    min-height: 300px;
+  }
+
+  .board[data-mode="lite"] [data-area="vary"] {
+    min-height: 500px;
+  }
+
+  .board[data-mode="lite"] [data-area="now"] {
+    min-height: 440px;
+  }
+
+  .lite__body {
+    padding: var(--s-3);
+  }
+
+  .lite__counts > div {
+    flex-direction: column;
+    gap: var(--s-1);
+  }
+
+  .lite__chart {
+    height: 220px;
+  }
+}

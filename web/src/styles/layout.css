@@ -16,6 +16,14 @@
     "grid  grid  grid  grid   grid   dumb   dumb   dumb   pareto pareto tape tape";
 }
 
+.board__wait {
+  grid-column: 1 / -1;
+  min-height: 240px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius);
+}
+
 /* tablet: duas colunas, esfera na largura toda */
 @media (max-width: 1279px) {
   .board {
@@ -145,6 +153,18 @@
   flex-wrap: wrap;
 }
 
+.top__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: none;
+}
+
+.top__mode .seg__opt {
+  min-width: 44px;
+  height: 24px;
+}
+
 .top__clock {
   display: flex;
   align-items: baseline;
@@ -184,6 +204,10 @@
     margin-left: 0;
     width: 100%;
     order: 3;
+  }
+
+  .top__mode {
+    margin-left: auto;
   }
 
   .top__right {
