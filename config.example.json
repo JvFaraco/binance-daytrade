@@ -1,0 +1,20 @@
+{
+  "_aviso": "Copie para trader/config.json. paper=true usa a testnet da Binance. Confira fee_pct e fee_in_bnb com broker.py check.",
+  "paper": true,
+  "quote": "USDT",
+  "anchor_utc": "13:00",
+  "range_minutes": 60,
+  "entry_window_minutes": 240,
+  "flat_by_hours": 8,
+  "account": 1000,
+  "max_loss_per_trade": 10,
+  "max_position_pct": 50,
+  "daily_loss_limit": 30,
+  "max_trades_per_day": 3,
+  "min_reward_risk": 1.0,
+  "fee_pct": 0.1,
+  "slippage_pct": 0.05,
+  "fee_in_bnb": false,
+  "entry_mode": "otoco",
+  "exclude_bases": []
+}

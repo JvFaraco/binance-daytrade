@@ -1,0 +1,9 @@
+# estado local, chaves e dados baixados
+trader/
+.env
+*.env
+__pycache__/
+*.pyc
+# painel web
+web/node_modules/
+web/dist/
