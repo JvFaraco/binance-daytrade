@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { type HistoryResult, type McCostStats, type McResult, breakevenPct, mcCostStats, summarizeHistory, summarizeMc, verdict } from "../engine/timemachine";
 import { configFrom, useSettings } from "../state/settings";
 import { type TmState, useAnalysis } from "../state/stores";
+import { breakevenR, costK } from "../sphere/geometry";
 import { rawOf } from "./controller";
 
 export interface TmDerived {
@@ -16,6 +17,8 @@ export interface TmDerived {
   breakeven: number | null;
   /** % de acerto observado entre os que bateram num lado */
   hitRate: number | null;
+  /** R bruto que o preço precisa andar só para pagar os custos (o anel "empate" da esfera) */
+  evenR: number;
 }
 
 export function useConfig() {
@@ -40,6 +43,7 @@ export function useTmDerived(): TmDerived | null {
       verdict: verdict(mc, tm.plan, cfg),
       breakeven: breakevenPct(tm.plan, cfg),
       hitRate: sides ? (mc.counts.target / sides) * 100 : null,
+      evenR: breakevenR(costK(tm.plan.entry, tm.plan.stop), cost / 100),
     };
   }, [tm, cost]);
 }

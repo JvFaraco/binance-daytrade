@@ -129,8 +129,8 @@ export function PlanCard() {
             <div className="plan__size">
               <Stat label={`qtd ${order.base}`} text={order.qty.replace(".", ",")} />
               <Stat label={`valor ${order.quote}`} value={order.notional} format={(v) => fmt.num(v)} tone="raw" />
-              <Stat label="no stop" value={-order.max_loss} format={(v) => fmt.num(v)} tone="neg" hint="perda máx." />
-              <Stat label="no alvo" value={order.reward_at_target} format={(v) => fmt.signed(v)} tone={order.reward_at_target > 0 ? "pos" : "neg"} hint="líquido" />
+              <Stat label="no stop" num="at_stop" value={-order.max_loss} format={(v) => fmt.num(v)} tone="neg" hint="perda máx." />
+              <Stat label="no alvo" num="at_target" value={order.reward_at_target} format={(v) => fmt.signed(v)} tone={order.reward_at_target > 0 ? "pos" : "neg"} hint="líquido" />
             </div>
           ) : (
             <div className="plan__refused" role="status">

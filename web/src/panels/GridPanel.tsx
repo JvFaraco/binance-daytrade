@@ -158,7 +158,7 @@ export function GridPanel() {
               <p className="grid__verdict" aria-live="polite">
                 {verdict.topN ? (
                   <>
-                    <b className={verdict.topPositive > verdict.topN / 2 ? "tone-pos" : "tone-neg"}>
+                    <b className={verdict.topPositive > verdict.topN / 2 ? "tone-pos" : "tone-neg"} data-num="grid_top">
                       {verdict.topPositive} de {verdict.topN}
                     </b>{" "}
                     melhores do treino seguiram positivas no teste.{" "}
@@ -167,7 +167,7 @@ export function GridPanel() {
                   <>Nenhuma combinação disparou 20 vezes no treino neste período. </>
                 )}
                 Com 10+ trades no teste:{" "}
-                <b className={verdict.allPositive > 0 ? "tone-signal" : "tone-neg"}>
+                <b className={verdict.allPositive > 0 ? "tone-signal" : "tone-neg"} data-num="grid_all">
                   {verdict.allPositive} de {verdict.allN}
                 </b>{" "}
                 com R total positivo.

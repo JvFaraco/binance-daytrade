@@ -98,14 +98,22 @@ interface StatProps {
   tone?: Tone;
   size?: "md" | "lg" | "xl";
   flash?: boolean;
+  /** nome do número (data-num): o mesmo nome no Pro e no Lite tem de mostrar o mesmo texto */
+  num?: string;
 }
 
-export const Stat = memo(function Stat({ label, value, format, text, unit, hint, tone = "neutral", size = "md", flash = true }: StatProps) {
+export const Stat = memo(function Stat({ label, value, format, text, unit, hint, tone = "neutral", size = "md", flash = true, num }: StatProps) {
   return (
     <div className="stat" data-tone={tone} data-size={size}>
       <span className="label">{label}</span>
       <span className="stat__value">
-        {text !== undefined ? <span className="num">{text}</span> : <AnimatedNumber value={value} format={format ?? String} flash={flash} />}
+        {text !== undefined ? (
+          <span className="num" data-num={num}>
+            {text}
+          </span>
+        ) : (
+          <AnimatedNumber value={value} format={format ?? String} flash={flash} num={num} />
+        )}
         {unit ? <span className="stat__unit">{unit}</span> : null}
       </span>
       {hint ? <span className="stat__hint">{hint}</span> : null}
