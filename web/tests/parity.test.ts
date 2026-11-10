@@ -175,6 +175,16 @@ describe("timemachine", () => {
     });
   }
 
+  for (const c of t.mc_blocks) {
+    it(`run_mc_blocks: ${c.replays} replays, seed ${c.seed}, bloco ${c.mean_block ?? "automático"}, custos ${JSON.stringify(c.cfg)}`, () => {
+      expectSame(tm.runMcBlocks(t.plan, sessions, cfgWith(c.cfg), c.replays, c.seed, c.mean_block), c.out, SUM_TOL);
+    });
+  }
+
+  it("block_length", () => {
+    for (const c of t.block_lengths) expect(tm.blockLength(c.n_sessions, c.n)).toBe(c.out);
+  });
+
   it("run_mc com outros planos (stop no fundo da faixa; alvo e stop apertados)", () => {
     for (const c of t.mc_other) expectSame(tm.runMc(c.plan, sessions, DEFAULTS, c.replays, c.seed, c.window), c.out, SUM_TOL);
   });

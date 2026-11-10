@@ -2,7 +2,7 @@
 // e os testes também, para montar o mesmo estado que a interface recebe.
 import { type Bar, DAY, TraderError, closedOnly } from "../engine/core";
 import type { Plan } from "../engine/plan";
-import { fullSessions, historyTrades, runMcRaw } from "../engine/timemachine";
+import { fullSessions, historyTrades, runMcBlocksRaw, runMcRaw } from "../engine/timemachine";
 import { buildSphereBuffers } from "../sphere/geometry";
 import type { Progress, TimeMachineResult } from "./protocol";
 
@@ -38,6 +38,13 @@ export function timeMachineJob(allBars: ReadonlyArray<Bar>, req: TimeMachineJob,
   });
   const mcMs = performance.now() - t0;
   const sphere = withSphere ? buildSphereBuffers(raw, plan.target_r, req.maxDraw) : null;
+  // modo em blocos, lado a lado no painel de odds do Pro; o Lite não mostra e não paga por ele
+  let blocks: TimeMachineResult["blocks"] = null;
+  if (withSphere) {
+    const t1 = performance.now();
+    const b = runMcBlocksRaw(plan, sessions, req.replays, req.seed);
+    blocks = { exit: b.exit, outcome: b.outcome, meanBlock: b.meanBlock, ms: performance.now() - t1 };
+  }
   const data: TimeMachineResult = {
     sessions: sessions.length,
     from,
@@ -55,8 +62,10 @@ export function timeMachineJob(allBars: ReadonlyArray<Bar>, req: TimeMachineJob,
     history: historyTrades(plan, sessions),
     sphere,
     mcMs,
+    blocks,
   };
   const transfer: Transferable[] = [raw.exit.buffer, raw.outcome.buffer, raw.len.buffer];
+  if (blocks) transfer.push(blocks.exit.buffer, blocks.outcome.buffer);
   if (sphere) transfer.push(sphere.points.buffer, sphere.index.buffer, sphere.pathReplay.buffer, sphere.pathStart.buffer, sphere.pathCount.buffer);
   return { data, transfer };
 }

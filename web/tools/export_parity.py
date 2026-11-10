@@ -248,7 +248,14 @@ def case_timemachine():
     pct = [{"vals": v, "p": p, "out": timemachine.percentile(v, p)} for v, p in
            [([], 5), ([1.0], 50), ([1.0, 2.0, 3.0, 4.0], 50), ([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], 50), (list(map(float, range(11))), 5),
             (list(map(float, range(11))), 95), (list(map(float, range(102))), 5), (list(map(float, range(102))), 50)]]
-    return {"plan": plan, "bars": bars, "before": S,
+    mc_blocks = []
+    for replays, seed, mean_block, cfg_over in [(2000, 19, None, {}), (2000, 7, None, {}), (3000, 19, None, {"fee_pct": 0, "slippage_pct": 0}),
+                                               (1000, 19, 1, {}), (1000, 19, 10 ** 6, {}), (1500, 11, 5, {"fee_pct": 0.075})]:
+        mc_blocks.append({"replays": replays, "seed": seed, "mean_block": mean_block, "cfg": cfg_over,
+                          "out": timemachine.run_mc_blocks(plan, sessions, dict(CFG, **cfg_over), replays, seed, mean_block)})
+    block_lengths = [{"n_sessions": ns, "n": n, "out": timemachine.block_length(ns, n)} for ns, n in
+                     [(30, 96), (60, 96), (20, 96), (1, 1), (8, 1), (1000, 96), (59, 96)]]
+    return {"plan": plan, "bars": bars, "before": S, "mc_blocks": mc_blocks, "block_lengths": block_lengths,
             "sessions": [s for s, _ in sessions], "sessions_holed": len(timemachine.full_sessions(holed, plan["params"], S)),
             "pool_lens": [len(p) for p in pool], "pool_sample": {"slot": 40, "first": list(pool[40][0]), "last": list(pool[40][-1])},
             "mc": mc, "mc_other": mc_other, "history": timemachine.run_history(plan, sessions, CFG),

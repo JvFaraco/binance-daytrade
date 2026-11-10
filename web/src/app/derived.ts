@@ -16,6 +16,8 @@ export interface TmDerived {
   breakeven: number | null;
   /** % de acerto observado entre os que bateram num lado */
   hitRate: number | null;
+  /** os mesmos replays no modo em blocos (só no Pro) */
+  blocks: (McResult & { mean_block: number }) | null;
 }
 
 export function useConfig() {
@@ -32,6 +34,7 @@ export function useTmDerived(): TmDerived | null {
     const raw = rawOf(tm);
     const mc = summarizeMc(raw, cfg);
     const sides = mc.counts.target + mc.counts.stop;
+    const b = tm.result.blocks;
     return {
       tm,
       mc,
@@ -40,6 +43,7 @@ export function useTmDerived(): TmDerived | null {
       verdict: verdict(mc, tm.plan, cfg),
       breakeven: breakevenPct(tm.plan, cfg),
       hitRate: sides ? (mc.counts.target / sides) * 100 : null,
+      blocks: b ? { ...summarizeMc({ ...raw, exit: b.exit, outcome: b.outcome }, cfg), mean_block: b.meanBlock } : null,
     };
   }, [tm, cost]);
 }

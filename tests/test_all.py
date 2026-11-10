@@ -401,6 +401,36 @@ class TestTimeMachine(unittest.TestCase):
         mc = timemachine.run_mc(self.plan, ss, CFG, 200, 19, 0)
         self.assertEqual(mc["counts"]["stop"], 200)
 
+    def test_blocks_deterministic_and_sums(self):
+        ss = timemachine.full_sessions(self.history(30), self.plan["params"], S)
+        a = timemachine.run_mc_blocks(self.plan, ss, CFG, 2000, 19)
+        self.assertEqual(a, timemachine.run_mc_blocks(self.plan, ss, CFG, 2000, 19))
+        self.assertEqual(sum(a["counts"].values()), 2000)
+        self.assertAlmostEqual(sum(a["pct"].values()), 100.0)
+        self.assertEqual(a["mean_block"], round((len(ss) * 96) ** (1 / 3)))
+        self.assertNotEqual(a["counts"], timemachine.run_mc_blocks(self.plan, ss, CFG, 2000, 7)["counts"])
+
+    def test_blocks_keep_the_sequence_that_loose_candles_lose(self):
+        # metade das sessões é parada, metade sobe 0,5% a cada candle depois do slot 14
+        bars = []
+        for d in range(24):
+            s = S - (24 - d) * 86400000
+            p, sess = 100.0, []
+            for i in range(96):
+                c = p * 1.005 if (d % 2 and i > 14) else p
+                sess.append({"t": s + i * IV, "o": p, "h": max(p, c), "l": p, "c": c, "v": 1})
+                p = c
+            bars += sess
+        ss = timemachine.full_sessions(bars, self.plan["params"], S)
+        whole = timemachine.run_mc_blocks(self.plan, ss, CFG, 2000, 19, mean_block=10 ** 9)
+        # sessão inteira: ou sobe até o alvo, ou fica parada no preço de entrada
+        self.assertEqual(whole["counts"]["stop"], 0)
+        self.assertEqual((whole["open_p5"], whole["open_p95"]), (self.plan["entry"], self.plan["entry"]))
+        self.assertAlmostEqual(whole["pct"]["target"], 50, delta=5)
+        loose = timemachine.run_mc(self.plan, ss, CFG, 2000, 19, 2)
+        # candles soltos misturam as duas: quase todo replay sobe um pouco e chega ao alvo
+        self.assertGreater(loose["pct"]["target"], 90)
+
     def test_history_rule_replays_known_session(self):
         # pregoes iguais: rompe no slot 14 a 101.5, stop 100, alvo 103.75; depois sobe a 104
         sessions = []
@@ -443,6 +473,10 @@ class TestTimeMachine(unittest.TestCase):
                 self.assertEqual(rc, 0, buf.getvalue())
                 self.assertIn("Veredito:", buf.getvalue())
                 self.assertTrue(os.path.exists(os.path.join(d, "timemachine.json")))
+                self.assertIn("Em blocos", buf.getvalue())
+                saved = core.read_json(os.path.join(d, "timemachine.json"))
+                self.assertEqual(sum(saved["mc_blocos"]["counts"].values()), 500)
+                self.assertIn("avg_net_r", saved["mc"])          # o que o risk.py lê não mudou
             finally:
                 os.environ.pop("TRADER_DIR", None)
 

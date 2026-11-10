@@ -58,6 +58,19 @@ export function OddsPanel() {
               </div>
               <Meter value={(d.hitRate ?? 0) / 100} tone={d.breakeven !== null && d.hitRate !== null && d.hitRate >= d.breakeven ? "pos" : "neg"} marks={d.breakeven !== null ? [d.breakeven / 100] : []} label="Acerto observado contra o acerto que empata" />
             </div>
+            {d.blocks ? (
+              <Tooltip side="right" text={`Os mesmos ${fmt.int(d.blocks.replays)} replays, mas copiando trechos seguidos de sessões reais (em média ${d.blocks.mean_block} candles) em vez de candles soltos: mantém a sequência de calmaria e agitação que o sorteio solto perde. Nenhum dos dois até zerar: ${fmt.pct(d.blocks.pct.open, 1)}.`}>
+                <p className="odds__blocks num">
+                  <span className="label">em blocos</span>{" "}
+                  <b className={d.blocks.avg_net_r >= 0 ? "tone-pos" : "tone-neg"} data-num="blocks_avg">
+                    {fmt.rr(d.blocks.avg_net_r)}
+                  </b>{" "}
+                  <span className="tone-mute">
+                    · alvo {fmt.pct(d.blocks.pct.target, 1)} · stop {fmt.pct(d.blocks.pct.stop, 1)}
+                  </span>
+                </p>
+              </Tooltip>
+            ) : null}
             <p className="odds__verdict" aria-live="polite">
               {d.verdict}
             </p>

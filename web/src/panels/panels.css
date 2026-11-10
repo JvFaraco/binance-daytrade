@@ -471,6 +471,7 @@
   font-size: var(--fs-2);
 }
 
+.odds__blocks,
 .odds__verdict,
 .odds__hist {
   font-size: var(--fs-2);
