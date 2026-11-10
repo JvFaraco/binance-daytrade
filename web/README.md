@@ -172,7 +172,7 @@ duas colunas, celular com a esfera no topo e painéis recolhíveis.
 
 ## O que foi verificado
 
-- Lint, tipos, 107 testes Vitest (paridade, peças do painel, fluxo ao vivo e modo Lite), 66 testes Python e build de produção.
+- Lint, tipos, 107 testes Vitest (paridade, peças do painel, fluxo ao vivo e modo Lite), 73 testes Python e build de produção.
 - Modo Lite no Chromium contra a Binance real, em 1440 e 375 px: sem scroll horizontal, sem erro de console,
   nenhum pedido de three.js nem do pedaço do Pro; troca Lite → Pro → Lite sem recarregar, com os mesmos
   números, e `?modo=` vencendo o valor salvo. Lighthouse do Lite (2 execuções): 100 / 100 / 100, com

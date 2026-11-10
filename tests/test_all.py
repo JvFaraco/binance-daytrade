@@ -274,7 +274,9 @@ class TestPlanSizeRisk(unittest.TestCase):
         with contextlib.redirect_stdout(buf):
             rc = risk.main(["--now", late])
         self.assertEqual(rc, 2)
-        core.write_json(core.path_in("plan.json"), dict(self.plan, test_plan=True))
+        test_plan = dict(self.plan, test_plan=True)
+        core.write_json(core.path_in("plan.json"), test_plan)
+        core.write_json(core.path_in("orders.json"), dict(o, plan_fingerprint=core.fingerprint(test_plan)))  # size.py roda depois do plano
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = risk.main(["--now", late, "--force"])
@@ -283,8 +285,66 @@ class TestPlanSizeRisk(unittest.TestCase):
         core.write_json(core.path_in("config.json"), {"paper": False})
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            rc = risk.main(["--now", late, "--force"])
+            rc = risk.main(["--force"])
         self.assertEqual(rc, 1)
+        self.assertIn("--force", buf.getvalue())
+
+    def test_risk_counts_every_status_of_the_day(self):
+        o = dict(self._order(), reward_risk=1.2)
+        now = self.now + 2 * 60000
+        names = lambda cs: {c["name"] for c in cs if c["level"] == "block"}
+        today = core.today_utc(now)
+        # trade que já fechou no stop e resposta incerta da Binance também comprometem o dia
+        for status in ("closed", "entry_pending", "qualquer-outro"):
+            st = {"orders": [{"date": today, "status": status, "max_loss": 25}]}
+            self.assertIn("limite do dia", names(risk.run_checks(self.plan, o, CFG, st, now)), status)
+        st = {"orders": [{"date": today, "status": "closed", "max_loss": 1}] * 3}
+        self.assertIn("trades no dia", names(risk.run_checks(self.plan, o, CFG, st, now)))
+        st = {"orders": [{"date": "2026-11-01", "status": "closed", "max_loss": 25}]}
+        self.assertEqual(names(risk.run_checks(self.plan, o, CFG, st, now)), set())
+
+    def _risk_cli(self, *args):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = risk.main(list(args))
+        return rc, buf.getvalue()
+
+    def test_risk_main_blocks_order_from_other_plan(self):
+        o = dict(self._order(), reward_risk=1.2)
+        core.write_json(core.path_in("orders.json"), o)
+        when = "2026-11-02 14:18"   # self.now (14:16) + 2 min
+        core.write_json(core.path_in("plan.json"), self.plan)
+        rc, out = self._risk_cli("--now", when)
+        self.assertEqual(rc, 0, out)
+        core.write_json(core.path_in("plan.json"), dict(self.plan, target=self.plan["target"] + 1))
+        rc, out = self._risk_cli("--now", when)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("ordem do plano atual", out)
+        core.write_json(core.path_in("plan.json"), dict(self.plan, symbol="ETHUSDT"))
+        self.assertEqual(self._risk_cli("--now", when)[0], 2)
+
+    def test_risk_main_ignores_record_of_this_same_order(self):
+        o = dict(self._order(), reward_risk=1.2)
+        core.write_json(core.path_in("plan.json"), self.plan)
+        core.write_json(core.path_in("orders.json"), o)
+        now = self.now + 2 * 60000
+        mine = {"date": core.today_utc(now), "status": "approved", "max_loss": o["max_loss"],
+                "fingerprint": core.fingerprint(o)}
+        core.write_json(core.path_in("state.json"), {"orders": [mine] * 3})   # rodar o risk de novo depois do "sim"
+        when = "2026-11-02 14:18"
+        rc, out = self._risk_cli("--now", when)
+        self.assertEqual(rc, 0, out)
+        core.write_json(core.path_in("state.json"), {"orders": [dict(mine, fingerprint="outra")] * 3})
+        self.assertEqual(self._risk_cli("--now", when)[0], 2)
+
+    def test_risk_now_only_in_paper(self):
+        core.write_json(core.path_in("plan.json"), self.plan)
+        core.write_json(core.path_in("orders.json"), dict(self._order(), reward_risk=1.2))
+        core.write_json(core.path_in("config.json"), {"paper": False})
+        rc, out = self._risk_cli("--now", "2026-11-02 14:16")
+        self.assertEqual(rc, 1)
+        self.assertIn("--now", out)
+        self.assertIsNone(core.read_json(core.path_in("risk.json")))
 
     def test_risk_warns_without_timemachine(self):
         cs = risk.run_checks(self.plan, self._order(), CFG, {"orders": []}, self.now)
@@ -404,6 +464,7 @@ class FakeExchange:
     def __init__(self, fill=True, fail_oco=False, fok_fill=True):
         self.sent, self.fill, self.fail_oco, self.fok_fill = [], fill, fail_oco, fok_fill
         self.qty = None
+        self.open_lists = []
 
     def __call__(self, url, params=None, headers=None, data=None, method=None, timeout=20, retries=2):
         body = (data or b"").decode()
@@ -431,6 +492,8 @@ class FakeExchange:
             if self.fail_oco:
                 raise core.ApiError("HTTP 400 em oco: parametro invalido")
             return {"orderListId": 7}
+        if path.endswith("/api/v3/openOrderList") and method == "GET":
+            return self.open_lists
         if path.endswith("/api/v3/orderList") and method == "DELETE":
             return {"orderListId": 7, "listOrderStatus": "ALL_DONE"}
         if path.endswith("/api/v3/openOrders") and method == "DELETE":
@@ -700,6 +763,50 @@ class TestBroker(unittest.TestCase):
         with mock.patch.object(core, "http_json", fx):
             self.assertIsNone(broker.exec_rule_warning(core.TEST_HOST, self.order))
             self.assertIn("faixa de execução", broker.exec_rule_warning(core.TEST_HOST, low))
+
+    def _protected_record(self, order, **extra):
+        rec = {"date": self.stamp, "at": self.now, "fingerprint": core.fingerprint(order), "symbol": order["symbol"],
+               "status": "protected", "mode": order["mode"], "max_loss": order["max_loss"], "qty": order["qty"],
+               "paper": order["paper"], "sellable_qty": order["exit"]["quantity"]}
+        rec.update(extra)
+        core.write_json(core.path_in("state.json"), {"orders": [rec]})
+
+    def test_now_only_in_paper(self):
+        core.write_json(core.path_in("config.json"), {"paper": False})
+        with mock.patch.object(core, "http_json", side_effect=AssertionError("rede não deveria ser usada")):
+            for args in (("status",), ("flatten", "--reply", "sim BTCUSDT"), ("send", "entry")):
+                rc, out = self.run_cli(*args)
+                self.assertEqual(rc, 1, args)
+                self.assertIn("--now", out)
+
+    def test_status_and_flatten_refuse_other_mode(self):
+        live = dict(self.order, paper=False)           # dimensionada em modo real, config em paper
+        core.write_json(core.path_in("orders.json"), live)
+        self._protected_record(live, order_list_id=77)
+        with mock.patch.object(core, "http_json", side_effect=AssertionError("rede não deveria ser usada")):
+            for args in (("status",), ("flatten", "--reply", "sim BTCUSDT")):
+                rc, out = self.run_cli(*args)
+                self.assertEqual(rc, 1, args)
+                self.assertIn("modo diferente", out)
+        self.assertEqual(self.state()["status"], "protected")
+
+    def test_flatten_without_list_id_cancels_only_own_lists(self):
+        self._protected_record(self.order)              # protegida, mas sem order_list_id gravado
+        fp = core.fingerprint(self.order)
+        fx = FakeExchange()
+        fx.open_lists = [
+            {"orderListId": 7, "symbol": "BTCUSDT", "listClientOrderId": "bnd-%s-x-12345" % fp},
+            {"orderListId": 9, "symbol": "BTCUSDT", "listClientOrderId": "minha-ordem-manual"},
+            {"orderListId": 11, "symbol": "BTCUSDT", "listClientOrderId": "bnd-outraordem-x-1"},
+            {"orderListId": 13, "symbol": "ETHUSDT", "listClientOrderId": "bnd-%s-x-9" % fp}]
+        with mock.patch.object(core, "http_json", fx):
+            rc, out = self.run_cli("flatten", "--reply", "sim BTCUSDT")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn(("DELETE", "/api/v3/openOrders"), fx.paths())
+        cancels = [u for m, u, _, _ in fx.sent if m == "DELETE"]
+        self.assertEqual(len(cancels), 1)
+        self.assertIn("orderListId=7", cancels[0])
+        self.assertEqual(self.state()["status"], "flattened")
 
     def test_check_is_read_only(self):
         fx = FakeExchange()

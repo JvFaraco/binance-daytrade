@@ -95,10 +95,12 @@ Detalhes, o que foi verificado e limites em [`web/README.md`](web/README.md). O 
 python3 -m unittest discover -s tests -v
 ```
 
-66 testes, offline, com candles sintéticos e uma corretora falsa. Cobrem o sinal, o
+73 testes, offline, com candles sintéticos e uma corretora falsa. Cobrem o sinal, o
 dimensionamento e os filtros, os limites de risco, a simulação, o backtest, a leitura
 dos zips mensais (com timestamps em microssegundos), a assinatura HMAC (contra o
-exemplo da documentação da Binance) e os fluxos OTOCO e two-step do broker.
+exemplo da documentação da Binance) e os fluxos OTOCO e two-step do broker, e as travas de segurança:
+todo registro do dia conta no limite, `--now` só na testnet, ordem conferida contra o plano,
+`status`/`flatten` no mesmo modo do config e `flatten` cancelando só as listas que o broker criou.
 
 ## O que foi conferido na documentação oficial
 
