@@ -90,8 +90,8 @@ export function SpherePanel() {
   }, []);
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (!tm) return;
-    const b = tm.result.sphere;
+    const b = tm?.result.sphere;
+    if (!b) return;
     const cur = useSphereHover.getState().hover;
     if (e.key === "Escape") {
       useSphereHover.setState({ hover: null });
@@ -106,6 +106,8 @@ export function SpherePanel() {
 
   const busy = status === "loading" || hist.status === "loading";
   const r = tm?.result;
+  // vindo do Lite, os replays existem mas os fios ainda não: eles chegam em seguida, com a mesma seed
+  const sphere = r?.sphere ?? null;
   const sub = r
     ? `${fmt.int(r.replays)} replays · seed ${r.seed} · ${r.sessions} sessões de ${symbol} · candles de 5m do mesmo horário ±${r.window}`
     : "replays do plano com candles de 5m do próprio par";
@@ -129,14 +131,14 @@ export function SpherePanel() {
         ref={wrap}
         tabIndex={tm ? 0 : -1}
         role="group"
-        aria-label={tm ? `Esfera com ${fmt.int(r?.sphere.drawn ?? 0)} replays do plano. Use as setas esquerda e direita para percorrer os replays; Esc limpa a seleção.` : "Esfera do Time Machine"}
+        aria-label={tm ? `Esfera com ${fmt.int(sphere?.drawn ?? 0)} replays do plano. Use as setas esquerda e direita para percorrer os replays; Esc limpa a seleção.` : "Esfera do Time Machine"}
         onKeyDown={onKey}
       >
-        {tm && r ? (
+        {tm && r && sphere ? (
           <div className="sphere__stage">
             <SceneBoundary>
               <Suspense fallback={<SkeletonStack lines={6} label="Carregando a visualização 3D" />}>
-                <Scene buffers={r.sphere} k={k} targetR={tm.plan.target_r} active={active} labels={labels} />
+                <Scene buffers={sphere} k={k} targetR={tm.plan.target_r} active={active} labels={labels} />
               </Suspense>
             </SceneBoundary>
             <div className="sphere__rings" ref={labels} aria-hidden="true">
@@ -168,7 +170,16 @@ export function SpherePanel() {
             </div>
           </div>
         ) : null}
-        {tm && r ? (
+        {tm && r && !sphere ? (
+          <div className="sphere__loading">
+            <SkeletonStack lines={5} label="Preparando a esfera" />
+            <div className="sphere__loadingBar">
+              <span className="label">preparando os fios da esfera (mesmos replays, mesma seed)</span>
+              <Meter value={progress} tone="signal" label="Progresso" />
+            </div>
+          </div>
+        ) : null}
+        {tm && r && sphere ? (
           <>
             <div className="sphere__legend">
               <b>1 fio = 1 replay</b>
@@ -177,7 +188,7 @@ export function SpherePanel() {
               <span>
                 cor = R líquido <span className="tone-pos">positivo</span> / <span className="tone-neg">negativo</span>
               </span>
-              <span className="tone-mute">{r.sphere.drawn < r.replays ? `${fmt.int(r.sphere.drawn)} de ${fmt.int(r.replays)} fios desenhados; as estatísticas usam todos` : `${fmt.int(r.sphere.drawn)} fios desenhados`}</span>
+              <span className="tone-mute">{sphere.drawn < r.replays ? `${fmt.int(sphere.drawn)} de ${fmt.int(r.replays)} fios desenhados; as estatísticas usam todos` : `${fmt.int(sphere.drawn)} fios desenhados`}</span>
               <span className="tone-mute">arraste para girar · passe o mouse num fio</span>
             </div>
             <div className="sphere__plan">
