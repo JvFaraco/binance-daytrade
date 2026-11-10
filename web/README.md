@@ -103,6 +103,11 @@ src/sphere/     geometria e cena three.js (carregada sob demanda)
 src/styles/     tokens.css (design system), base e grade
 ```
 
+Página aberta por horas: a lista de pares é renovada a cada 30 min (como o cache do `scan.py`), o
+histórico do par é recarregado quando passa de 30 min de idade (só o mês corrente é pedido de novo) e,
+depois de qualquer queda do WebSocket, os candles de todos os pares são buscados de novo antes de o
+scanner voltar a rodar. Vinte segundos sem nenhuma mensagem contam como conexão morta.
+
 Limite de pedidos: cada chamada declara o peso; a soma do último minuto aparece na telemetria
 como "estimado" (o navegador não expõe `X-MBX-USED-WEIGHT-1M` por CORS). Em 429 o cliente espera
 e tenta de novo no máximo duas vezes; em 418 para de pedir. A primeira carga gasta cerca de 240 de
@@ -120,12 +125,17 @@ duas colunas, celular com a esfera no topo e painéis recolhíveis.
 
 ## O que foi verificado
 
-- Lint, tipos, 86 testes Vitest (paridade + peças do painel), 66 testes Python e build de produção.
+- Lint, tipos, 90 testes Vitest (paridade, peças do painel e fluxo ao vivo), 66 testes Python e build de produção.
 - Paridade exata também com 120 dias de candles reais de BTCUSDT e SOLUSDT (replays, grade, pesquisa).
 - App rodando no Chromium (Playwright) contra a Binance real: screenshots em 1440, 1024 e 390 px,
   sem scroll horizontal e sem erro de console; troca de par, de período (3 → 12 meses, e de novo
   pelo cache), de âncora, alvo e stop; controle de custo; hover e teclado na esfera.
 - Estados de 418, 429 e queda de rede, simulados por interceptação dos pedidos.
+- Virada real de um candle de 5m: o candle novo abre no horário, o que fechou entra no cálculo e o
+  scanner roda de novo um segundo depois, sem buraco nos candles.
+- Sessão com a faixa ainda em formação (âncora na hora cheia corrente): estado "formando" e plano em replay.
+- WebSocket que para de entregar sem fechar e WebSocket fechado pelo servidor (fluxo real passando por
+  um intermediário controlado): em ~20 s o painel deixa de dizer "ao vivo", reconecta e repõe os candles.
 - Lighthouse desktop no build de produção (3 execuções): performance 99 a 100, acessibilidade 100, boas práticas 100.
 
 ![12 meses de BTCUSDT, vista de teste](docs/grade-12-meses-teste.png)

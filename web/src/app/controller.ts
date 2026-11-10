@@ -2,7 +2,7 @@
 // É aqui que o pipeline do skill acontece de verdade: scan -> plan -> timemachine -> size -> risk.
 // Não existe etapa de envio: o broker.py não foi portado e nenhuma ordem sai daqui.
 import { DEFAULT_GRID, grid as makeGrid } from "../engine/backtest";
-import { type Config, ApiError, TraderError, closedOnly, fmtTs, orbSignal } from "../engine/core";
+import { type Config, ApiError, IV, TraderError, closedOnly, fmtTs, orbSignal } from "../engine/core";
 import { type Plan, buildPlan } from "../engine/plan";
 import * as fmt from "./format";
 import { runChecks, riskVerdict } from "../engine/risk";
@@ -17,6 +17,9 @@ import { type TmState, setStage, useAnalysis, useMarket, useTelemetry, useTicks 
 import { TAPE_MAX, live, now, upsertBar } from "./live";
 
 export const UNIVERSE_TOP = 40;
+export const UNIVERSE_REFRESH_MS = 30 * 60000;
+/** histórico mais velho que isso é recarregado antes de simular (só o mês corrente é pedido de novo) */
+export const HISTORY_STALE_MS = 30 * 60000;
 export const TM_DAYS = 60;
 export const TM_REPLAYS = 10000;
 export const TM_SEED = 19;
@@ -81,6 +84,11 @@ function startStream(): void {
     },
     onStatus(wsStatus, wsHost) {
       useTelemetry.setState({ wsStatus, wsHost });
+      // sem conexão não há latência nem taxa de mensagens para mostrar
+      if (wsStatus !== "ao vivo") useTelemetry.setState({ wsLatency: null, wsRate: 0 });
+    },
+    onResume() {
+      void resync();
     },
     onLatency(ms) {
       const t = useTelemetry.getState();
@@ -114,6 +122,64 @@ function startStream(): void {
   }, 1000);
   // os estados mudam com o relógio (fim da faixa, fim da janela), não só com candle novo
   setInterval(() => scheduleScan(0), 15000);
+  // a lista de pares vale 30 min, como o universe_cache.json do scan.py
+  setInterval(() => void refreshUniverse(), UNIVERSE_REFRESH_MS);
+}
+
+/**
+ * Depois de uma queda do WebSocket: os candles que fecharam no intervalo não chegaram.
+ * Busca de novo os candles de cada par e refaz o scanner, para o sinal não sair de dado com buraco.
+ */
+let resyncing = false;
+async function resync(): Promise<void> {
+  if (resyncing) return;
+  resyncing = true;
+  try {
+    const symbols = useMarket.getState().universe.map((u) => u.symbol);
+    const sel = useSettings.getState().symbol;
+    if (!symbols.includes(sel)) symbols.push(sel);
+    const sb = await engine({ type: "sessionBars", symbols, limit: 300 });
+    for (const [sym, packed] of Object.entries(sb.data.bars)) {
+      const fresh = unpackBars(packed);
+      const last = live.bars.get(sym);
+      // mantém o candle em formação mais novo que já chegou pelo fluxo
+      const tail = last && fresh.length && last.length && last[last.length - 1].t > fresh[fresh.length - 1].t ? [last[last.length - 1]] : [];
+      live.bars.set(sym, [...fresh, ...tail]);
+      if (fresh.length) live.last.set(sym, (tail[0] ?? fresh[fresh.length - 1]).c);
+    }
+    useTicks.setState((t) => ({ ...t, bars: t.bars + 1 }));
+    pricesDirty = true;
+    runScan();
+  } catch {
+    // sem REST agora: o próximo retorno do fluxo tenta de novo
+  } finally {
+    resyncing = false;
+  }
+}
+
+/** Renova a lista de pares (ticker 24h pesa 80, por isso só a cada 30 min) e ajusta os fluxos. */
+async function refreshUniverse(): Promise<void> {
+  if (useMarket.getState().boot !== "pronto") return;
+  const cfg = configFrom(useSettings.getState());
+  try {
+    const tick = await engine({ type: "tickers", quote: cfg.quote, ttlMinutes: cfg.universe_cache_minutes });
+    const universe = pickUniverse(tick.data.tickers, cfg, UNIVERSE_TOP);
+    if (!universe.length) return;
+    const missing = universe.map((u) => u.symbol).filter((s) => !live.bars.has(s));
+    if (missing.length) {
+      const sb = await engine({ type: "sessionBars", symbols: missing, limit: 300 });
+      for (const [sym, packed] of Object.entries(sb.data.bars)) {
+        const bars = unpackBars(packed);
+        live.bars.set(sym, bars);
+        if (bars.length) live.last.set(sym, bars[bars.length - 1].c);
+      }
+    }
+    useMarket.setState({ universe, universeAt: tick.data.at, universeCached: tick.data.fromCache });
+    syncStreams();
+    runScan();
+  } catch {
+    // fica com a lista anterior; a telemetria mostra se a API limitou
+  }
 }
 
 function syncStreams(): void {
@@ -172,8 +238,11 @@ let settingsKey = "";
 
 async function loadHistoryFor(symbol: string, months: number, token: number): Promise<boolean> {
   const a = useAnalysis.getState();
-  if (a.history.status === "ready" && a.history.symbol === symbol && a.history.months === months) return true;
-  useAnalysis.setState({ history: { status: "loading", symbol, months, done: 0, total: 0, note: "", info: null, error: null } });
+  const fresh = a.history.info ? now() - (a.history.info.last + IV) < HISTORY_STALE_MS : false;
+  if (a.history.status === "ready" && a.history.symbol === symbol && a.history.months === months && fresh) return true;
+  // recarga do mesmo par e período (histórico envelhecido): mantém o resumo anterior na tela enquanto atualiza
+  const keep = a.history.symbol === symbol && a.history.months === months ? a.history.info : null;
+  useAnalysis.setState({ history: { status: "loading", symbol, months, done: 0, total: 0, note: "", info: keep, error: null } });
   try {
     const { data, ms } = await engine({ type: "history", symbol, months, now: now() }, (p) => {
       if (token !== seq) return;

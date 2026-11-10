@@ -16,10 +16,15 @@ export interface Trade {
   sell: boolean;
 }
 
+/** Sem nenhuma mensagem por esse tempo, a conexão é dada como morta mesmo sem ter fechado. */
+export const SILENCE_MS = 20000;
+
 export interface StreamHandlers {
   onKline: (symbol: string, bar: Bar, closed: boolean) => void;
   onTrade: (symbol: string, trade: Trade) => void;
   onStatus: (status: StreamStatus, host: string) => void;
+  /** a conexão voltou depois de uma queda: candles podem ter sido perdidos no intervalo */
+  onResume: () => void;
   /** atraso entre a hora do evento na Binance e a chegada aqui, em ms */
   onLatency: (ms: number) => void;
 }
@@ -52,6 +57,9 @@ export class MarketStream {
   private msgId = 1;
   private lat: number[] = [];
   private latTimer: ReturnType<typeof setInterval> | null = null;
+  private lastMessageAt = 0;
+  private dropped = false;
+  private wired = false;
   /** relógio da Binance menos o local (vem de /api/v3/time) */
   clockOffset = 0;
   messages = 0;
@@ -77,7 +85,7 @@ export class MarketStream {
 
   private connect(): void {
     const host = WS_HOSTS[this.hostIdx];
-    this.h.onStatus(this.fails ? "reconectando" : "conectando", host);
+    this.h.onStatus(this.fails || this.dropped ? "reconectando" : "conectando", host);
     let ws: WebSocket;
     try {
       ws = new WebSocket(host + "/ws");
@@ -90,8 +98,13 @@ export class MarketStream {
     ws.onopen = () => {
       if (this.ws !== ws) return;
       this.fails = 0;
+      this.lastMessageAt = Date.now();
       this.h.onStatus("ao vivo", host);
       this.sync();
+      if (this.dropped) {
+        this.dropped = false;
+        this.h.onResume();
+      }
     };
     ws.onmessage = (ev) => this.onMessage(ev.data as string);
     ws.onclose = () => {
@@ -100,8 +113,10 @@ export class MarketStream {
       if (!this.stopped) this.scheduleReconnect();
     };
     ws.onerror = () => ws.close();
+    this.wire();
     if (!this.latTimer) {
       this.latTimer = setInterval(() => {
+        this.watchdog();
         if (!this.lat.length) return;
         const s = this.lat.slice().sort((a, b) => a - b);
         this.lat = [];
@@ -110,7 +125,51 @@ export class MarketStream {
     }
   }
 
+  /**
+   * Vigia de silêncio: uma conexão pode morrer sem avisar (troca de rede, notebook que dormiu).
+   * Com dezenas de fluxos de candle chega mensagem toda hora; 20 s de silêncio é conexão morta,
+   * e o painel não pode continuar dizendo "ao vivo".
+   */
+  private watchdog(): void {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !this.have.size) return;
+    if (Date.now() - this.lastMessageAt < SILENCE_MS) return;
+    this.drop(ws);
+  }
+
+  /** Abandona a conexão atual (sem esperar o close, que pode nunca vir) e reconecta. */
+  private drop(ws: WebSocket): void {
+    if (this.ws !== ws) return;
+    this.ws = null;
+    ws.onclose = null;
+    ws.onmessage = null;
+    try {
+      ws.close();
+    } catch {
+      /* já estava fechada */
+    }
+    if (!this.stopped) this.scheduleReconnect();
+  }
+
+  /** O navegador avisa quando a rede cai e volta: não precisa esperar o vigia nem a espera do backoff. */
+  private wire(): void {
+    if (this.wired || typeof window === "undefined") return;
+    this.wired = true;
+    window.addEventListener("offline", () => {
+      if (this.ws) this.drop(this.ws);
+    });
+    window.addEventListener("online", () => {
+      if (this.stopped || this.ws) return;
+      if (this.retry) clearTimeout(this.retry);
+      this.retry = null;
+      this.fails = 0;
+      this.dropped = true;
+      this.connect();
+    });
+  }
+
   private scheduleReconnect(): void {
+    this.dropped = true;
     this.fails++;
     if (this.fails % 2 === 0) this.hostIdx = (this.hostIdx + 1) % WS_HOSTS.length;
     const wait = Math.min(30000, 1000 * 2 ** Math.min(this.fails - 1, 5));
@@ -140,6 +199,7 @@ export class MarketStream {
     } catch {
       return;
     }
+    this.lastMessageAt = Date.now();
     if (!("e" in m)) return;
     this.messages++;
     this.lat.push(Date.now() + this.clockOffset - m.E);
