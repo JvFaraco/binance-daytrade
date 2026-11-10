@@ -1,11 +1,13 @@
 // Modo Lite: a conclusão do Pro numa tela só, para quem nunca operou. Lê as mesmas stores e as
 // mesmas funções derivadas; não recalcula nem arredonda nada por conta própria.
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { TM_REPLAYS, boot, selectSymbol } from "../app/controller";
 import { useTmDerived } from "../app/derived";
 import * as fmt from "../app/format";
 import { DEFAULT_GRID, gridVerdict, summarizeCombo } from "../engine/backtest";
+import { costIndex, liteLabSentence, survivors } from "../lab/model";
+import { loadLab, useLab } from "../lab/store";
 import { CostControl } from "../panels/CostControl";
 import { TopBar } from "../panels/TopBar";
 import { setMode } from "../state/mode";
@@ -168,6 +170,41 @@ function Variations() {
   );
 }
 
+/** O Cemitério do Pro numa frase: as mesmas contagens, no mesmo custo do controle. */
+function Graveyard() {
+  const status = useLab((s) => s.status);
+  const data = useLab((s) => s.data);
+  const error = useLab((s) => s.error);
+  const cost = useSettings((s) => s.cost_pct);
+  useEffect(() => {
+    void loadLab();
+  }, []);
+  const n = data ? survivors(data, costIndex(data, cost)) : 0;
+  return (
+    <Panel area="lab" title="E as estratégias famosas?" sub={data ? `${data.strategies.length} estratégias · ${data.pairs.length} moedas · ${data.window.oos_days} dias` : "as mais usadas, na mesma régua"} state={<LiveDot state={status === "error" ? "error" : data ? "done" : "busy"} label="" />}>
+      <div className="lite__body">
+        {data ? (
+          <>
+            <div className="lite__count" aria-live="polite">
+              <b className={n > 0 ? "tone-signal" : "tone-neg"} data-num="lab_survivors">
+                {n} de {data.strategies.length}
+              </b>
+              <span className="lite__text">{liteLabSentence(n)}</span>
+            </div>
+            <p className="lite__text lite__text--dim">
+              RSI, médias móveis, MACD, o robô Grid da Binance e outras, testadas em dados que não tinham visto, contra comprar e segurar e contra a sorte. Detalhes no Cemitério, em &quot;ver todos os dados&quot;.
+            </p>
+          </>
+        ) : status === "error" ? (
+          <PanelState kind="error" title="O resultado não carregou" detail={error} />
+        ) : (
+          <SkeletonStack lines={2} label="Carregando o resultado" />
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 function Foot() {
   return (
     <section className="lite__foot" style={{ gridArea: "foot" }}>
@@ -186,6 +223,7 @@ export function LiteBoard() {
       <Verdict />
       <Cost />
       <Variations />
+      <Graveyard />
       <Foot />
     </>
   );

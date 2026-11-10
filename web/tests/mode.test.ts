@@ -143,7 +143,8 @@ function closure(entry: string): { files: Set<string>; packages: Set<string>; dy
   return { files, packages, dynamic };
 }
 
-const rel = (f: string) => f.slice(src.length + 1);
+// caminho relativo a src/ sempre com "/": no Windows o resolve() devolve "\"
+const rel = (f: string) => f.slice(src.length + 1).replace(/\\/g, "/");
 const HEAVY = /^(three|@react-three\/|postprocessing)/;
 
 describe("o que o Lite não mostra não pesa no Lite", () => {
@@ -153,7 +154,7 @@ describe("o que o Lite não mostra não pesa no Lite", () => {
   it("o carregamento inicial (Lite) não alcança three.js nem os painéis do Pro", () => {
     expect([...first.packages].filter((p) => HEAVY.test(p))).toEqual([]);
     expect(firstFiles).toContain("lite/LiteBoard.tsx");
-    for (const proOnly of ["ProBoard.tsx", "sphere/SphereScene.tsx", "panels/SpherePanel.tsx", "panels/Scanner.tsx", "panels/GridPanel.tsx", "panels/DumbbellPanel.tsx", "panels/ParetoPanel.tsx", "panels/TapePanel.tsx", "panels/Pipeline.tsx", "panels/PlanCard.tsx", "panels/OddsPanel.tsx", "panels/Controls.tsx"]) {
+    for (const proOnly of ["ProBoard.tsx", "sphere/SphereScene.tsx", "panels/SpherePanel.tsx", "panels/Scanner.tsx", "panels/GridPanel.tsx", "panels/DumbbellPanel.tsx", "panels/ParetoPanel.tsx", "panels/TapePanel.tsx", "panels/Pipeline.tsx", "panels/PlanCard.tsx", "panels/OddsPanel.tsx", "panels/Controls.tsx", "panels/CemiterioPanel.tsx"]) {
       expect(firstFiles, proOnly).not.toContain(proOnly);
     }
   });

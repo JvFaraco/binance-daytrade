@@ -10,23 +10,24 @@ const MARKS = [
   { v: DEFAULT_COST, label: "padrão", title: "0,15%: taxa de 0,10% + slippage de 0,05%, o padrão do config" },
 ];
 
-/** `plain`: rótulos do modo Lite. O controle, o valor e a store são os mesmos nos dois modos. */
-export function CostControl({ plain = false }: { plain?: boolean }) {
+/** `plain`: rótulos do modo Lite. O controle, o valor e a store são os mesmos nos dois modos.
+ *  `id`: outra cópia na mesma página (o Cemitério) precisa de id próprio; só a principal leva o data-num. */
+export function CostControl({ plain = false, id = "cost-range" }: { plain?: boolean; id?: string }) {
   const cost = useSettings((s) => s.cost_pct);
   const set = useSettings((s) => s.set);
   const c = splitCost(cost);
   return (
     <div className="cost">
       <div className="cost__head">
-        <label className="label" htmlFor="cost-range">
+        <label className="label" htmlFor={id}>
           {plain ? "taxa em cada compra e em cada venda" : "custo por lado (taxa + slippage)"}
         </label>
-        <span className="cost__value num" data-num="cost">
+        <span className="cost__value num" data-num={id === "cost-range" ? "cost" : undefined}>
           {fmt.num(cost, 3)}%
         </span>
       </div>
       <input
-        id="cost-range"
+        id={id}
         className="range"
         type="range"
         min={0}
