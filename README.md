@@ -159,3 +159,7 @@ testnet. Em particular:
 - Stop-limit não garante saída num gap. A perda máxima mostrada é no preço do stop.
 
 Não é recomendação de investimento. Day trade perde dinheiro para a maioria.
+
+## Licença
+
+[MIT](LICENSE). Pode usar, copiar e modificar, mantendo o aviso de copyright. Sem garantia de nenhum tipo.
