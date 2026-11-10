@@ -639,14 +639,28 @@ def stats(r, entries=None, exposure=None):
             "exposure": (sum(exposure) / n * 100) if exposure is not None and n else None}
 
 
+def luck_hurdle(trials, var_sr):
+    """O Sharpe (por dia) que a melhor de `trials` tentativas SEM habilidade nenhuma atinge,
+    em média, só por sorte (Bailey & López de Prado, 2014)."""
+    if trials <= 1 or var_sr <= 0:
+        return 0.0
+    return math.sqrt(var_sr) * ((1 - EULER) * ND.inv_cdf(1 - 1.0 / trials) + EULER * ND.inv_cdf(1 - 1.0 / (trials * math.e)))
+
+
+def null_var(t):
+    """Variância do Sharpe estimado em t dias quando o Sharpe verdadeiro é zero.
+    Usar a variância observada entre as tentativas faria as estratégias desastrosas
+    (Sharpe muito negativo) subirem a barra de todas; a hipótese a vencer é 'ninguém
+    tem habilidade', e nela a dispersão entre tentativas é só a do erro de estimação."""
+    return 1.0 / (t - 1) if t > 1 else 0.0
+
+
 def deflated_sharpe(sr, t, skew, kurt, trials, var_sr):
     """Probabilidade de o Sharpe (por dia) ser maior que o melhor que a sorte daria
     em `trials` tentativas com variância `var_sr` entre elas (Bailey & López de Prado, 2014)."""
     if sr is None or t < 3:
         return None
-    sr0 = 0.0
-    if trials > 1 and var_sr > 0:
-        sr0 = math.sqrt(var_sr) * ((1 - EULER) * ND.inv_cdf(1 - 1.0 / trials) + EULER * ND.inv_cdf(1 - 1.0 / (trials * math.e)))
+    sr0 = luck_hurdle(trials, var_sr)
     den = 1 - skew * sr + (kurt - 1) / 4.0 * sr * sr
     if den <= 0:
         return None
@@ -839,31 +853,20 @@ def evaluate(ctxs, universe, now_ms, log=print):
             series[(st["key"], ctx["sym"])] = [fn(ctx) for _, fn in st["variants"]]
     rot = [rotation_series(universe, d0, nd, n) for _, n in ROTATION["variants"]] if universe else []
 
-    def trial_srs(sym, c):
-        """Sharpe por dia, fora da amostra, de cada variante fixa (as 'tentativas')."""
-        out = []
-        groups = [series[(st["key"], sym)] for st in STRATEGIES] + ([rot] if rot else [])
-        for g in groups:
-            for v in g:
-                r = net_returns(v, c)[a:]
-                out.append(stats(r)["sr"] or 0.0)
-        return out
-
-    def var(xs):
-        m = sum(xs) / len(xs)
-        return sum((x - m) ** 2 for x in xs) / (len(xs) - 1) if len(xs) > 1 else 0.0
-
     cols = ["ret", "sharpe", "dd", "trades", "exposure", "dsr", "beats_bh", "alive"]
     out = {"version": 1, "engine": "scripts/lab.py", "generated": ymd(core.now_ms()),
            "window": {"start": ymd(eval_start), "end": ymd(end - 1), "oos_start": ymd((d0 + a) * DAY),
                       "oos_days": nd - a, "blocks": len(blocks), "block_months": BLOCK_MONTHS, "warmup_months": WARMUP_MONTHS},
            "pairs": [c["sym"] for c in ctxs], "costs": COSTS, "default_cost": DEFAULT_COST, "trials": trials,
-           "criterion": {"dsr": ALIVE_DSR, "min_pairs": ALIVE_MIN_PAIRS}, "cols": cols,
+           "criterion": {"dsr": ALIVE_DSR, "min_pairs": ALIVE_MIN_PAIRS,
+                         "luck_sharpe": round(luck_hurdle(trials, null_var(nd - a)) * math.sqrt(365), 2)}, "cols": cols,
            "baselines": {}, "strategies": [], "notes": [
                "Custo cobrado como fator (1 - custo) a cada lado negociado, na proporção do patrimônio que girou.",
                "Grid simulado em candles de 1h: ordem limite só executa se o preço atravessa o degrau; um degrau não compra e vende na mesma hora.",
                "Rotação: candidatas são as moedas de maior volume hoje, com o período inteiro de dados (viés de sobrevivência a favor da estratégia).",
-               "Indicadores com os parâmetros populares, declarados antes; nenhum ajuste depois de ver o resultado."]}
+               "Indicadores com os parâmetros populares, declarados antes; nenhum ajuste depois de ver o resultado.",
+               "Com custo maior, o walk-forward pode trocar para a variante que gira menos; por isso uma estratégia às vezes melhora quando o custo sobe.",
+               "Barra da sorte: o Sharpe que a melhor de todas as variações testadas atingiria, em média, sem habilidade nenhuma (variância do Sharpe sob a hipótese nula)."]}
     if universe:
         out["universe"] = sorted(universe)
 
@@ -878,23 +881,12 @@ def evaluate(ctxs, universe, now_ms, log=print):
         bh[ctx["sym"]] = rows_bh
         out["baselines"][ctx["sym"]] = {"bh": rows_bh, "dca": rows_dca}
 
-    trial_cache = {}
-    for ci, c in enumerate(COSTS):
-        for ctx in ctxs:
-            srs = trial_srs(ctx["sym"], c / 100)
-            trial_cache[(ci, ctx["sym"])] = (srs, var(srs))
-
-    def judge(variants, sym_for_trials, bh_rows, ci):
+    def judge(variants, bh_rows, ci):
         c = COSTS[ci] / 100
         r, ent, exp_, chosen = walk_forward(variants, c, blocks)
         s = stats(r, ent, exp_)
-        if sym_for_trials == "*":
-            pool = [x for k, v in trial_cache.items() if k[0] == ci for x in v[0]]
-            v_sr = var(pool)
-        else:
-            v_sr = trial_cache[(ci, sym_for_trials)][1]
         _, _, sk, ku = moments(r)
-        dsr = deflated_sharpe(s["sr"], len(r), sk, ku, trials, v_sr)
+        dsr = deflated_sharpe(s["sr"], len(r), sk, ku, trials, null_var(len(r)))
         beats = s["sharpe"] is not None and bh_rows[ci][1] is not None and s["sharpe"] > bh_rows[ci][1]
         alive = bool(beats and dsr is not None and dsr >= ALIVE_DSR)
         row = [r4(s["total"]), r4(s["sharpe"]), r4(s["dd"], 1), s["trades"], r4(s["exposure"], 1), r4(dsr, 3), int(beats), int(alive)]
@@ -912,7 +904,7 @@ def evaluate(ctxs, universe, now_ms, log=print):
             vs = series[(st["key"], ctx["sym"])]
             rows, chosen_default = [], None
             for ci in range(len(COSTS)):
-                row, chosen = judge(vs, ctx["sym"], bh[ctx["sym"]], ci)
+                row, chosen = judge(vs, bh[ctx["sym"]], ci)
                 rows.append(row)
                 alive_n[ci] += row[7]
                 if ci == di:
@@ -932,7 +924,7 @@ def evaluate(ctxs, universe, now_ms, log=print):
         entry["portfolio"] = True
         rows, chosen_default = [], None
         for ci in range(len(COSTS)):
-            row, chosen = judge(rot, "*", btc, ci)
+            row, chosen = judge(rot, btc, ci)
             rows.append(row)
             if ci == di:
                 chosen_default = chosen
@@ -952,6 +944,8 @@ def show(res, out=print):
     w = res["window"]
     out("Fora da amostra: %s a %s (%d dias) · custo %.3f%% por lado · %d variações testadas"
         % (w["oos_start"], w["end"], w["oos_days"], res["default_cost"], res["trials"]))
+    out("Barra da sorte: com %d tentativas sem habilidade, a melhor chega a Sharpe anual ~%.2f"
+        % (res["trials"], res["criterion"]["luck_sharpe"]))
     out("Comprar e segurar no mesmo trecho:")
     for sym, b in res["baselines"].items():
         out("  %-8s %+8.1f%%  Sharpe %s  queda máx %.1f%%  · DCA semanal %+.1f%% sobre o investido"

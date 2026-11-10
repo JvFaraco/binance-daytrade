@@ -1191,6 +1191,12 @@ class TestLab(unittest.TestCase):
         self.assertGreater(one, few)
         self.assertGreater(few, many)
         self.assertIsNone(lab.deflated_sharpe(None, 1000, 0, 3, 5, 0.001))
+        # barra da sorte: sobe com o número de tentativas, cai com mais dias de dados
+        h33 = lab.luck_hurdle(33, lab.null_var(1004)) * math.sqrt(365)
+        self.assertAlmostEqual(h33, 1.28, delta=0.05)
+        self.assertGreater(lab.luck_hurdle(100, lab.null_var(1004)), lab.luck_hurdle(33, lab.null_var(1004)))
+        self.assertLess(lab.luck_hurdle(33, lab.null_var(4000)), lab.luck_hurdle(33, lab.null_var(1004)))
+        self.assertEqual(lab.luck_hurdle(1, lab.null_var(1004)), 0.0)
 
     def test_pbo(self):
         rng = random.Random(3)
