@@ -2,12 +2,16 @@ import { motion } from "framer-motion";
 import { useEffect } from "react";
 import { boot } from "./app/controller";
 import { Controls } from "./panels/Controls";
+import { DumbbellPanel } from "./panels/DumbbellPanel";
+import { GridPanel } from "./panels/GridPanel";
 import { OddsPanel } from "./panels/OddsPanel";
-import { Pending } from "./panels/Pending";
+import { ParetoPanel } from "./panels/ParetoPanel";
 import { Pipeline } from "./panels/Pipeline";
+import { PlanCard } from "./panels/PlanCard";
 import { PricePanel } from "./panels/PricePanel";
 import { Scanner } from "./panels/Scanner";
 import { SpherePanel } from "./panels/SpherePanel";
+import { TapePanel } from "./panels/TapePanel";
 import { TopBar } from "./panels/TopBar";
 import { STAGGER } from "./ui/motion";
 
@@ -22,13 +26,13 @@ export function App() {
       <Scanner />
       <SpherePanel />
       <OddsPanel />
-      <Pending area="plan" title="Plano" sub="entrada · stop · alvo · tamanho · risco" />
+      <PlanCard />
       <PricePanel />
       <Pipeline />
-      <Pending area="grid" title="Grade do backtest" sub="treino × teste" />
-      <Pending area="dumb" title="Bruto × líquido" sub="por estratégia" />
-      <Pending area="pareto" title="Sinais rejeitados" sub="motivos do motor" />
-      <Pending area="tape" title="Fita e telemetria" sub="negócios ao vivo" />
+      <GridPanel />
+      <DumbbellPanel />
+      <ParetoPanel />
+      <TapePanel />
     </motion.main>
   );
 }

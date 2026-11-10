@@ -14,7 +14,9 @@ mkdirSync(dir, { recursive: true });
 const targets = [
   { name: "desktop-1440", ctx: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 } },
   { name: "tablet-1024", ctx: { viewport: { width: 1024, height: 900 }, deviceScaleFactor: 1 } },
-  { name: "mobile-390", ctx: { ...devices["iPhone 13"], viewport: { width: 390, height: 844 } } },
+  // DSF 1,5 de propósito: o Chromium com GL por software quebra a captura de página inteira em 8.192 px
+  // físicos e repete o começo da página dali em diante (a página do celular tem ~4.600 px de altura)
+  { name: "mobile-390", ctx: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true, userAgent: devices["iPhone 13"].userAgent } },
 ].filter((t) => !only || t.name.startsWith(only));
 
 (async () => {

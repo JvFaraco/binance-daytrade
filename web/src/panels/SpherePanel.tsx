@@ -125,9 +125,23 @@ export function SpherePanel() {
         onKeyDown={onKey}
       >
         {tm && r && gl ? (
-          <Suspense fallback={<SkeletonStack lines={6} label="Carregando a visualização 3D" />}>
-            <Scene buffers={r.sphere} k={k} targetR={tm.plan.target_r} active={active} labels={labels} />
-          </Suspense>
+          <div className="sphere__stage">
+            <Suspense fallback={<SkeletonStack lines={6} label="Carregando a visualização 3D" />}>
+              <Scene buffers={r.sphere} k={k} targetR={tm.plan.target_r} active={active} labels={labels} />
+            </Suspense>
+            <div className="sphere__rings" ref={labels} aria-hidden="true">
+              <span className="sphere__ring tone-pos" data-ring="target">
+                alvo {fmt.rr(tm.plan.target_r, 1)}
+              </span>
+              <span className="sphere__ring tone-signal" data-ring="entry">
+                entrada 0R
+              </span>
+              <span className="sphere__ring tone-neg" data-ring="stop">
+                stop {fmt.rr(-1, 0)}
+              </span>
+              <span className="sphere__ring sphere__ring--even" data-ring="even" />
+            </div>
+          </div>
         ) : null}
         {tm && r && !gl ? <PanelState kind="error" title="WebGL indisponível" detail="A esfera precisa de WebGL. Os números ao lado continuam valendo: eles não dependem do desenho." /> : null}
         {!tm && status === "error" ? <PanelState kind="error" title="O Time Machine não rodou" detail={error} /> : null}
@@ -146,18 +160,6 @@ export function SpherePanel() {
         ) : null}
         {tm && r ? (
           <>
-            <div className="sphere__rings" ref={labels} aria-hidden="true">
-              <span className="sphere__ring tone-pos" data-ring="target">
-                alvo {fmt.rr(tm.plan.target_r, 1)}
-              </span>
-              <span className="sphere__ring tone-signal" data-ring="entry">
-                entrada 0R
-              </span>
-              <span className="sphere__ring tone-neg" data-ring="stop">
-                stop {fmt.rr(-1, 0)}
-              </span>
-              <span className="sphere__ring sphere__ring--even" data-ring="even" />
-            </div>
             <div className="sphere__legend">
               <b>1 fio = 1 replay</b>
               <span>tempo da sessão → longitude</span>

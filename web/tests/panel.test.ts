@@ -103,6 +103,22 @@ describe("geometria da esfera", () => {
   });
 });
 
+describe("bruto x líquido do rompimento", () => {
+  it("retorno com posição cheia: líquido = bruto - custo de ida e volta sobre a entrada", () => {
+    const w = fx.backtest.wild;
+    const trades = backtest.evaluateTrades(w.bars, DEFAULTS.entry_buffer_pct, w.combos.slice(0, 1), 1, 240, 8, 1.0)[0].train;
+    expect(trades.length).toBeGreaterThan(5);
+    const free = backtest.tradeReturns(trades, { fee_pct: 0, slippage_pct: 0 });
+    const paid = backtest.tradeReturns(trades, DEFAULTS);
+    trades.forEach((t, i) => {
+      expect(free.net[i]).toBeCloseTo(free.gross[i], 12);
+      expect(paid.gross[i]).toBe(free.gross[i]);
+      expect(paid.net[i]).toBeCloseTo(free.gross[i] - ((t.entry + t.exit) * 0.0015) / t.entry, 12);
+      expect(paid.net[i]).toBeLessThan(paid.gross[i]);
+    });
+  });
+});
+
 describe("dados e controles", () => {
   it("candles compactados voltam idênticos", () => {
     const bars = (fx.timemachine.bars as Bar[]).slice(0, 500);

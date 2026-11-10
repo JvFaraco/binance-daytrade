@@ -249,3 +249,18 @@ export function gridVerdict(res: ReadonlyArray<ComboResult>, top = 5): GridVerdi
     allN: res.filter((r) => r.test.trades >= 10).length,
   };
 }
+
+/**
+ * Retorno de cada trade com a posição cheia (fração do capital): bruto e líquido de custo.
+ * Só para comparar o rompimento com as outras estratégias na mesma unidade (% composto).
+ * líquido = R líquido * risco / entrada, a mesma conta do net_r.
+ */
+export function tradeReturns(trades: ReadonlyArray<RuleTrade>, cfg: Costs): { gross: number[]; net: number[] } {
+  const gross: number[] = [];
+  const net: number[] = [];
+  for (const t of trades) {
+    gross.push(t.exit / t.entry - 1);
+    net.push((netR(t.entry, t.exit, t.stop, cfg.fee_pct, cfg.slippage_pct) * (t.entry - t.stop)) / t.entry);
+  }
+  return { gross, net };
+}

@@ -6,7 +6,7 @@
   max-width: 1920px;
   margin: 0 auto;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-rows: auto auto 470px 150px 330px 350px;
+  grid-template-rows: auto auto 470px 190px 330px 350px;
   grid-template-areas:
     "top   top   top   top    top    top    top    top    top    top   top   top"
     "ctl   ctl   ctl   ctl    ctl    ctl    ctl    ctl    ctl    ctl   ctl   ctl"

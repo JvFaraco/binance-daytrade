@@ -237,10 +237,18 @@ function Rings({ k, targetR, rScale, labels }: { k: number; targetR: number; rSc
       el.style.opacity = "1";
       return el;
     };
+    const ys: Record<string, number> = {};
+    const yOf = (r: number) => {
+      const la = latitudeOf(r, rScale);
+      v.set(rx * Math.cos(la) * 1.05, Math.sin(la), rz * Math.cos(la) * 1.05).project(camera);
+      return (0.5 - v.y * 0.5) * size.height;
+    };
+    const yEven = yOf(g);
     for (const f of objects.fixed) {
       const el = place(f.key, f.r);
-      // o empate passa por cima da entrada quando o custo é quase zero: some com o rótulo de baixo
-      if (el && f.key === "entry" && Math.abs(g) < 0.14) el.style.opacity = "0";
+      ys[f.key] = yOf(f.r);
+      // o empate passa perto de um anel fixo: some com o rótulo de baixo para não sobrepor texto
+      if (el && Math.abs(ys[f.key] - yEven) < 13) el.style.opacity = "0";
     }
     const ev = place("even", g);
     if (ev) {
@@ -395,6 +403,21 @@ function Picker({ buffers }: { buffers: SphereBuffers }) {
   );
 }
 
+/** Em painel estreito a câmera se afasta para a esfera e os anéis caberem na largura. */
+function Fit() {
+  const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    const aspect = size.width / Math.max(1, size.height);
+    camera.position.setLength(CAMERA_DISTANCE / Math.min(1, aspect / 1.08));
+    invalidate();
+  }, [camera, size, invalidate]);
+  return null;
+}
+
+const CAMERA_DISTANCE = Math.hypot(0.85, 4.4);
+
 export default function SphereScene(props: SceneProps) {
   const reduce = prefersReducedMotion();
   const small = props.buffers.drawn <= 2500;
@@ -407,6 +430,7 @@ export default function SphereScene(props: SceneProps) {
       camera={{ fov: 30, position: [0, 0.85, 4.4], near: 0.1, far: 20 }}
       onCreated={({ gl }) => gl.setClearColor(tokens().bg1, 1)}
     >
+      <Fit />
       <Threads {...props} />
       <Rings k={props.k} targetR={props.targetR} rScale={props.buffers.rScale} labels={props.labels} />
       <Picker buffers={props.buffers} />

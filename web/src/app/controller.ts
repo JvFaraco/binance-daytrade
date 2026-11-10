@@ -379,6 +379,16 @@ export async function analyze(): Promise<void> {
   const cfg = configFrom(s);
   const a = useAnalysis.getState();
   const symbolChanged = a.history.symbol !== s.symbol;
+  const periodChanged = symbolChanged || a.history.months !== s.months;
+  if (periodChanged) {
+    // pesquisa e motivos de rejeição são do período: saem da tela até o novo cálculo chegar
+    settingsKey = "";
+    useAnalysis.setState({
+      research: { status: "loading", raw: null, error: null, ms: null },
+      breakout: { status: "loading", trades: null, sessions: 0 },
+      rejections: { status: "loading", report: null },
+    });
+  }
   if (symbolChanged) {
     useAnalysis.setState({ plan: null, planSource: null, planNote: null, tm: null, tmStatus: "idle", order: null, orderError: null, checks: null, riskVerdict: null });
     setStage("plan", { status: "running", ms: null, note: "carregando histórico", progress: null });
