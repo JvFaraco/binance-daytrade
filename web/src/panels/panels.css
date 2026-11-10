@@ -258,3 +258,264 @@
   border-style: dashed;
   background: none;
 }
+
+/* ------------------------------------------------------------ esfera */
+.sphere {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-1);
+}
+
+.sphere:focus-visible {
+  outline-offset: -2px;
+}
+
+.sphere__canvas {
+  position: absolute !important;
+  inset: 0;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.sphere__canvas:active {
+  cursor: grabbing;
+}
+
+.sphere__legend,
+.sphere__plan {
+  position: absolute;
+  left: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-1);
+  color: var(--tx-2);
+  pointer-events: none;
+  max-width: 236px;
+  text-shadow: 0 0 6px var(--bg-1), 0 0 2px var(--bg-1);
+}
+
+.sphere__legend {
+  bottom: var(--s-3);
+}
+
+.sphere__rings {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sphere__legend b {
+  color: var(--tx-1);
+  font-weight: 700;
+}
+
+.sphere__plan {
+  top: var(--s-3);
+  font-size: var(--fs-2);
+}
+
+.sphere__ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  font-size: var(--fs-1);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding-left: 6px;
+  will-change: transform;
+  text-shadow: 0 0 6px var(--bg-1), 0 0 2px var(--bg-1);
+}
+
+.sphere__ring--even {
+  color: var(--tx-1);
+  font-weight: 700;
+}
+
+.sphere__hover {
+  position: absolute;
+  z-index: 20;
+  min-width: 190px;
+  padding: var(--s-2);
+  background: var(--bg-3);
+  border: 1px solid var(--signal);
+  border-radius: var(--radius);
+  font-size: var(--fs-2);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sphere__hoverR {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-5);
+  font-weight: 700;
+}
+
+.sphere__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.sphere__loadingBar,
+.sphere__rerun {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: 0 var(--s-3);
+}
+
+.sphere__rerun {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 0;
+}
+
+/* ------------------------------------------------------------ odds + custo */
+.odds {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.odds > * {
+  min-width: 0;
+}
+
+.odds__hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.odds__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-2);
+}
+
+.odds__bar {
+  display: flex;
+  height: 6px;
+  gap: 1px;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.odds__bar span {
+  background: var(--raw);
+  transition: width var(--t-panel) var(--ease-out);
+}
+
+/* alvo, aberto e stop são fatos brutos do replay (não dependem de custo): tons de azul */
+.odds__bar span[data-k="open"] {
+  opacity: 0.45;
+}
+
+.odds__bar span[data-k="stop"] {
+  opacity: 0.22;
+}
+
+.odds__barLabels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-2);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+
+.odds__even {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.odds__evenHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2px var(--s-2);
+  font-size: var(--fs-2);
+}
+
+.odds__verdict,
+.odds__hist {
+  font-size: var(--fs-2);
+  color: var(--tx-2);
+  line-height: 1.4;
+}
+
+.cost {
+  margin-top: auto;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cost__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.cost__head .label {
+  color: var(--signal);
+}
+
+.cost__value {
+  font-size: var(--fs-5);
+  font-weight: 700;
+  color: var(--signal);
+}
+
+.cost__marks {
+  position: relative;
+  height: 16px;
+  margin: 0 6px;
+}
+
+.cost__mark {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: var(--fs-1);
+  color: var(--tx-3);
+  white-space: nowrap;
+  padding: 0 2px;
+  border-radius: var(--radius);
+}
+
+.cost__mark:first-child {
+  transform: none;
+  margin-left: -6px;
+}
+
+.cost__mark:hover,
+.cost__mark[data-on="true"] {
+  color: var(--signal);
+}
+
+.cost__split {
+  white-space: normal;
+}

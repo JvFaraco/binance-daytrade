@@ -115,7 +115,7 @@ export function Scanner() {
             ))}
           </ul>
           <div className="scan__foot label">
-            lista de pares de {fmt.hhmm(at)} {cached ? "(cache de 30 min, como o scan.py)" : "(buscada agora)"}
+            pares de {fmt.hhmm(at)} BRT · {cached ? "cache de 30 min" : "buscados agora"}
           </div>
         </>
       )}

@@ -2,10 +2,12 @@ import { motion } from "framer-motion";
 import { useEffect } from "react";
 import { boot } from "./app/controller";
 import { Controls } from "./panels/Controls";
+import { OddsPanel } from "./panels/OddsPanel";
 import { Pending } from "./panels/Pending";
 import { Pipeline } from "./panels/Pipeline";
 import { PricePanel } from "./panels/PricePanel";
 import { Scanner } from "./panels/Scanner";
+import { SpherePanel } from "./panels/SpherePanel";
 import { TopBar } from "./panels/TopBar";
 import { STAGGER } from "./ui/motion";
 
@@ -18,8 +20,8 @@ export function App() {
       <TopBar />
       <Controls />
       <Scanner />
-      <Pending area="sphere" title="Time Machine" sub="10.000 replays" />
-      <Pending area="stats" title="Odds" sub="líquido de taxa e slippage" />
+      <SpherePanel />
+      <OddsPanel />
       <Pending area="plan" title="Plano" sub="entrada · stop · alvo · tamanho · risco" />
       <PricePanel />
       <Pipeline />

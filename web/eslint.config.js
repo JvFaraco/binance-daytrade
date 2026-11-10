@@ -17,5 +17,12 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
+  {
+    // A cena three.js é imperativa por natureza: os buffers e uniforms dos objetos WebGL são
+    // atualizados no lugar (a cada resultado do worker e a cada quadro), sem recriar geometria.
+    // As regras do React Compiler tratam isso como mutação indevida; aqui é o comportamento desejado.
+    files: ["src/sphere/SphereScene.tsx"],
+    rules: { "react-hooks/immutability": "off", "react-hooks/preserve-manual-memoization": "off" },
+  },
   { files: ["tests/**/*.ts", "vite.config.ts", "vitest.setup.ts", "tools/**/*.{js,ts,mjs}"], languageOptions: { globals: { ...globals.node } } },
 );
