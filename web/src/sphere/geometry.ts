@@ -32,7 +32,7 @@ export interface SphereBuffers {
 
 /**
  * R bruto que empata depois dos custos: net = g(1-c) - cK = 0, com c = custo por lado (fração)
- * e K = 2 * entrada / risco. É o anel "empate" da esfera e a frase de custo do modo Lite.
+ * e K = 2 * entrada / risco. É o anel "empate" da esfera.
  */
 export function breakevenR(k: number, costFraction: number): number {
   return (costFraction * k) / (1 - costFraction);

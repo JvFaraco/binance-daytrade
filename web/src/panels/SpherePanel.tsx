@@ -5,6 +5,7 @@ import { netR } from "../engine/core";
 import { OUTCOME_STOP, OUTCOME_TARGET } from "../engine/timemachine";
 import { splitCost, useSettings } from "../state/settings";
 import { useAnalysis, useMarket } from "../state/stores";
+import { costK } from "../sphere/geometry";
 import { useSphereHover } from "../sphere/hover";
 import { Badge, LiveDot, Meter, NoData, Panel, PanelState, SkeletonStack } from "../ui";
 
@@ -111,7 +112,7 @@ export function SpherePanel() {
   const sub = r
     ? `${fmt.int(r.replays)} replays · seed ${r.seed} · ${r.sessions} sessões de ${symbol} · candles de 5m do mesmo horário ±${r.window}`
     : "replays do plano com candles de 5m do próprio par";
-  const k = r ? (2 * r.entry) / (r.entry - r.stop) : 1;
+  const k = r ? costK(r.entry, r.stop) : 1;
 
   return (
     <Panel

@@ -49,17 +49,17 @@ describe("veredito do Lite: negativo sem rodeio, positivo sem comemoração", ()
     for (const avg of [-0.01, -0.61, -1.52, -12]) {
       const v = liteVerdict(avg, 0.15);
       expect(v.tone).toBe("neg");
-      expect(v.title).toBe("Nas simulações, esta estratégia perdeu dinheiro depois das taxas.");
+      expect(v.title).toBe("Perdeu dinheiro depois das taxas.");
     }
     // sem custo não se pode culpar as taxas
-    expect(liteVerdict(-0.09, 0).title).toBe("Nas simulações, esta estratégia perdeu dinheiro mesmo sem taxa nenhuma.");
+    expect(liteVerdict(-0.09, 0).title).toBe("Perdeu dinheiro mesmo sem taxa nenhuma.");
   });
   it("resultado positivo nunca vira promessa", () => {
     for (const avg of [0, 0.01, 0.4, 3]) {
       const v = liteVerdict(avg, 0.15);
       expect(v.tone).toBe("mixed");
       expect(v.title).toContain("não prova nada");
-      expect(v.title.toLowerCase()).not.toMatch(/lucr|ganh|funciona|vale a pena|vantagem/);
+      expect(v.title.toLowerCase()).not.toMatch(/lucr|ganh|funciona|vale a pena|vantagem|dinheiro/);
     }
   });
   it("a porcentagem do valor arriscado tem os mesmos dígitos do R que o Pro mostra", () => {
@@ -70,8 +70,8 @@ describe("veredito do Lite: negativo sem rodeio, positivo sem comemoração", ()
       expect(riskedPct(avg).replace(/\D/g, "")).toBe(String(Number(pro)));
     }
     expect(riskedPct(-0.6094567560781433)).toBe("61%");
-    expect(averageSentence(-0.6094567560781433)).toBe("perde-se em média 61% do valor arriscado a cada operação.");
-    expect(averageSentence(0.25)).toBe("ganha-se em média 25% do valor arriscado a cada operação.");
+    expect(averageSentence(-0.6094567560781433)).toBe("em média, perde 61% do valor arriscado em cada operação");
+    expect(averageSentence(0.25)).toBe("em média, ganha 25% do valor arriscado em cada operação");
   });
 });
 

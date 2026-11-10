@@ -72,7 +72,7 @@ O motor foi portado para TypeScript com testes de paridade contra os scripts Pyt
 
 ### Modo Lite
 
-Quem nunca operou abre no **modo Lite**: a mesma conclusão em frases, com menos dados. O botão
+Quem nunca operou abre no **modo Lite**: a mesma conclusão numa tela só, com o mínimo de dados. O botão
 **Lite | Pro** na barra alterna os dois sem recarregar, e os números são os mesmos. Dá para mandar o
 link já no modo certo com `?modo=lite` ou `?modo=pro`.
 

@@ -22,7 +22,6 @@ import { type Bar, DEFAULTS, orbSignal } from "../src/engine";
 import { DEFAULT_GRID, evaluateTrades, grid as makeGrid, gridVerdict, summarizeCombo } from "../src/engine/backtest";
 import { parseRules } from "../src/engine/size";
 import { type McRaw, mcCostStats, summarizeMc } from "../src/engine/timemachine";
-import { breakevenR, costK } from "../src/sphere/geometry";
 import { MODE_PARAM, setMode, useMode } from "../src/state/mode";
 import { STORAGE_KEY } from "../src/state/persist";
 import { splitCost, useSettings } from "../src/state/settings";
@@ -30,7 +29,8 @@ import { useAnalysis, useMarket } from "../src/state/stores";
 import { timeMachineJob } from "../src/workers/jobs";
 import { fixture } from "./helpers";
 
-const NUMS = ["avg_net_r", "pct_target", "pct_open", "pct_stop", "hit_rate", "breakeven", "hist_avg", "at_target", "at_stop", "grid_top", "grid_all", "cost"];
+// todos os números que o Lite mostra; cada um tem de aparecer igual no Pro
+const NUMS = ["avg_net_r", "pct_target", "pct_open", "pct_stop", "grid_all", "cost"];
 const fx = fixture();
 const plan = fx.timemachine.plan;
 
@@ -116,7 +116,9 @@ describe("Lite e Pro com o mesmo estado", () => {
       await go("lite");
       await setCost(cost);
       const lite = read();
-      const evenLite = read(["even_r"]).even_r;
+      // o Lite não mostra nenhum número com nome além desses
+      const shown = [...document.querySelectorAll("[data-num]")].map((e) => e.getAttribute("data-num")).sort();
+      expect(shown).toEqual([...NUMS].sort());
       await go("pro");
       const pro = read();
       for (const n of NUMS) {
@@ -130,11 +132,10 @@ describe("Lite e Pro com o mesmo estado", () => {
       const v = gridVerdict(gridResult.combos.map((x) => summarizeCombo(x, c)));
       expect(lite.avg_net_r).toBe(fmt.rr(stats.avg_net_r));
       expect(lite.pct_target).toBe(fmt.pct(mc.pct.target, 1));
+      expect(lite.pct_open).toBe(fmt.pct(mc.pct.open, 1));
       expect(lite.pct_stop).toBe(fmt.pct(mc.pct.stop, 1));
-      expect(lite.grid_top).toBe(`${v.topPositive} de ${v.topN}`);
       expect(lite.grid_all).toBe(`${v.allPositive} de ${v.allN}`);
       expect(lite.cost).toBe(fmt.num(cost, 3) + "%");
-      expect(evenLite).toBe(fmt.rr(breakevenR(costK(plan.entry, plan.stop), cost / 100)));
     }
   });
 
@@ -182,8 +183,9 @@ describe("Lite e Pro com o mesmo estado", () => {
     });
     const title = document.querySelector(".lite__title") as HTMLElement;
     expect(title.getAttribute("data-tone")).toBe("mixed");
-    expect(title.textContent).toContain("não prova nada");
-    expect(document.querySelector(".lite__text--warn")?.textContent).toContain("não é vantagem comprovada");
+    expect(title.textContent).toBe("Deu positivo nesta simulação. Isso sozinho não prova nada.");
+    // nada no bloco fica verde: positivo aqui é âmbar
+    expect(document.querySelector('[data-area="verdict"] .stat')?.getAttribute("data-tone")).toBe("signal");
     // o número continua sendo o do motor, sem maquiagem para cima nem para baixo
     expect(read(["avg_net_r"]).avg_net_r.startsWith("+")).toBe(true);
     await act(async () => useAnalysis.setState({ tm }));

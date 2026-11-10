@@ -19,7 +19,7 @@ export function CostControl({ plain = false }: { plain?: boolean }) {
     <div className="cost">
       <div className="cost__head">
         <label className="label" htmlFor="cost-range">
-          {plain ? "custo em cada compra e em cada venda" : "custo por lado (taxa + slippage)"}
+          {plain ? "taxa em cada compra e em cada venda" : "custo por lado (taxa + slippage)"}
         </label>
         <span className="cost__value num" data-num="cost">
           {fmt.num(cost, 3)}%
@@ -44,11 +44,11 @@ export function CostControl({ plain = false }: { plain?: boolean }) {
           </button>
         ))}
       </div>
-      <div className="cost__split label">
-        {plain
-          ? `taxa da corretora ${fmt.num(c.fee_pct, 3)}% + diferença de preço na execução ${fmt.num(c.slippage_pct, 3)}% · somando compra e venda: ${fmt.num(cost * 2, 2)}%`
-          : `taxa ${fmt.num(c.fee_pct, 3)}% + slippage ${fmt.num(c.slippage_pct, 3)}% · ida e volta ${fmt.num(cost * 2, 2)}%`}
-      </div>
+      {plain ? null : (
+        <div className="cost__split label">
+          taxa {fmt.num(c.fee_pct, 3)}% + slippage {fmt.num(c.slippage_pct, 3)}% · ida e volta {fmt.num(cost * 2, 2)}%
+        </div>
+      )}
     </div>
   );
 }
