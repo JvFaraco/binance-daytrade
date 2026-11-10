@@ -201,8 +201,29 @@ def exec_rule_warning(host, order):
 
 # ---------------------------------------------------------------- comandos
 
+def same_mode(cfg, order):
+    """A ordem tem de ter sido dimensionada no mesmo modo (paper/real) do config atual."""
+    if bool(order["paper"]) != bool(cfg["paper"]):
+        raise core.TraderError("a ordem foi dimensionada em modo diferente do config atual. Rode size.py e risk.py de novo.")
+
+
+def cancel_own_lists(host, key, sec, order, fp):
+    """Sem o id da lista no estado: cancela só as listas abertas que ESTE broker criou para esta
+    ordem (listClientOrderId bnd-<fp>-...). Ordens postas à mão ou por outra ferramenta ficam."""
+    mine = "bnd-%s-" % fp
+    lists = signed("GET", host, "/api/v3/openOrderList", {}, key, sec) or []
+    ids = [ol["orderListId"] for ol in lists
+           if ol.get("symbol") == order["symbol"] and str(ol.get("listClientOrderId", "")).startswith(mine)]
+    for lid in ids:
+        signed("DELETE", host, "/api/v3/orderList", {"symbol": order["symbol"], "orderListId": lid}, key, sec)
+    return ids
+
+
 def load_all(a):
     cfg = core.load_config(a.config)
+    if a.now and not cfg["paper"]:
+        # com dinheiro real o relógio é o de verdade: --now poderia "rejuvenescer" a checagem de risco
+        raise core.TraderError("--now só vale em modo paper (testnet)")
     order = core.read_json(core.path_in("orders.json"))
     if not order:
         raise core.TraderError("sem orders.json (rode size.py --write)")
@@ -394,8 +415,7 @@ def cmd_send(a):
     rec = find_record(state, fp, today)
     if not rec:
         raise core.TraderError("não existe 'sim' registrado para esta ordem (broker.py approve)")
-    if bool(order["paper"]) != bool(cfg["paper"]):
-        raise core.TraderError("a ordem foi dimensionada em modo diferente do config atual. Rode size.py e risk.py de novo.")
+    same_mode(cfg, order)
     if a.what == "entry" and rec["status"] != "approved":
         raise core.TraderError("a entrada desta ordem já foi tratada (estado: %s)" % rec["status"])
     if order.get("mode") == "otoco":
@@ -407,6 +427,7 @@ def cmd_send(a):
 
 def cmd_status(a):
     cfg, order, state, now, today = load_all(a)
+    same_mode(cfg, order)
     rec = find_record(state, core.fingerprint(order), today)
     if not rec:
         print("Sem registro desta ordem hoje.")
@@ -435,6 +456,7 @@ def cmd_status(a):
 
 def cmd_flatten(a):
     cfg, order, state, now, today = load_all(a)
+    same_mode(cfg, order)
     fp = core.fingerprint(order)
     rec = find_record(state, fp, today)
     if not rec or rec["status"] not in OPEN_STATES:
@@ -453,8 +475,9 @@ def cmd_flatten(a):
             if rec.get("order_list_id"):
                 signed("DELETE", host, "/api/v3/orderList",
                        {"symbol": order["symbol"], "orderListId": rec["order_list_id"]}, key, sec)
-            else:
-                signed("DELETE", host, "/api/v3/openOrders", {"symbol": order["symbol"]}, key, sec)
+            elif not cancel_own_lists(host, key, sec, order, fp):
+                print("AVISO: nenhuma lista aberta desta ordem na Binance (alvo ou stop podem já ter executado). "
+                      "Nada foi cancelado; tentando vender o saldo registrado.")
         resp = signed("POST", host, "/api/v3/order", market_sell_params(order, qty), key, sec)
     except core.ApiError as e:
         print("Erro: %s\nConfira a posição e as ordens abertas direto na Binance." % e)

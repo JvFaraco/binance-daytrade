@@ -12,9 +12,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import core  # noqa: E402
 
-COMMITTED = ("approved", "entry_unfilled", "entry_filled", "protected", "flattened")
-
-
 def run_checks(plan, order, cfg, state, now, tm=None):
     checks = []
 
@@ -22,7 +19,10 @@ def run_checks(plan, order, cfg, state, now, tm=None):
         checks.append({"name": name, "level": level, "text": text})
 
     today = core.today_utc(now)
-    day = [r for r in state.get("orders", []) if r.get("date") == today and r.get("status") in COMMITTED]
+    # Todo registro do dia compromete o limite, qualquer que seja o estado: um trade que fechou
+    # no stop ("closed") e uma resposta incerta da Binance ("entry_pending") contam, e um estado
+    # desconhecido também (falha fechada). O registro desta mesma ordem sai antes, em main().
+    day = [r for r in state.get("orders", []) if r.get("date") == today]
     ml = order["max_loss"]
     add("perda máxima", "ok" if ml <= cfg["max_loss_per_trade"] * 1.0001 else "block",
         "%.2f de perda no stop, limite %.2f" % (ml, cfg["max_loss_per_trade"]))
@@ -69,17 +69,29 @@ def main(argv=None):
                     help="só em paper: rebaixa os bloqueios de horário/sinal/faixa pra AVISO (teste de tubulação)")
     a = ap.parse_args(argv)
     cfg = core.load_config(a.config)
+    if a.now and not cfg["paper"]:
+        # com dinheiro real o relógio é o de verdade: --now mudaria a janela, o sinal e o dia do limite
+        print("Erro: --now só vale em modo paper (testnet).")
+        return 1
     plan = core.read_json(core.path_in("plan.json"))
     order = core.read_json(core.path_in("orders.json"))
     if not plan or not order:
         print("Erro: faltam plan.json ou orders.json (rode plan.py e size.py com --write).")
         return 1
     now = core.now_ms(a.now)
+    fp = core.fingerprint(order)
     state = core.read_json(core.path_in("state.json"), {"orders": []})
+    # rodar o risk.py de novo depois do "sim" não pode contar esta ordem duas vezes
+    state = dict(state, orders=[r for r in state.get("orders", []) if r.get("fingerprint") != fp])
     tm = core.read_json(core.path_in("timemachine.json"))
     if tm and tm.get("plan", {}).get("entry") != plan["entry"]:
         tm = None  # time machine de outro plano
     checks = run_checks(plan, order, cfg, state, now, tm)
+    same = order.get("symbol") == plan.get("symbol") and order.get("plan_fingerprint") == core.fingerprint(plan)
+    checks.insert(0, {"name": "ordem do plano atual", "level": "ok" if same else "block",
+                      "text": "orders.json dimensionado a partir deste plan.json" if same else
+                      "orders.json não saiu deste plan.json (%s x %s). Rode size.py --write de novo."
+                      % (order.get("symbol"), plan.get("symbol"))})
     if a.force or plan.get("test_plan"):
         if not cfg["paper"]:
             print("Erro: --force e planos de teste só valem em modo paper.")
@@ -97,7 +109,7 @@ def main(argv=None):
         print("[%s] %s: %s" % (mark, c["name"], c["text"]))
     print("\n%s %s" % (verdict, order["symbol"]))
     core.write_json(core.path_in("risk.json"), {
-        "fingerprint": core.fingerprint(order), "verdict": verdict, "checked_at": now,
+        "fingerprint": fp, "verdict": verdict, "checked_at": now,
         "date": core.today_utc(now), "checks": checks})
     return 0 if verdict == "PASS" else 2
 

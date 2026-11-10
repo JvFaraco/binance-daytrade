@@ -4,8 +4,6 @@ import { type Config, fmtTs, sessionStart, todayUtc } from "./core";
 import type { Plan } from "./plan";
 import { fixedHalfEven, fixedPlus, fmtG, pySum } from "./py";
 
-export const COMMITTED = ["approved", "entry_unfilled", "entry_filled", "protected", "flattened"];
-
 export type CheckLevel = "ok" | "warn" | "block";
 
 export interface Check {
@@ -43,7 +41,8 @@ export function runChecks(plan: Plan, order: RiskOrder, cfg: Config, state: Risk
   const f2 = (x: number) => fixedHalfEven(x, 2);
 
   const today = todayUtc(now);
-  const day = (state.orders ?? []).filter((r) => r.date === today && COMMITTED.includes(r.status ?? ""));
+  // Como no risk.py: todo registro do dia compromete o limite, qualquer que seja o estado.
+  const day = (state.orders ?? []).filter((r) => r.date === today);
   const ml = order.max_loss;
   add("perda máxima", ml <= cfg.max_loss_per_trade * 1.0001 ? "ok" : "block", `${f2(ml)} de perda no stop, limite ${f2(cfg.max_loss_per_trade)}`);
   const committed = pySum(day.map((r) => Number(r.max_loss ?? 0)));
