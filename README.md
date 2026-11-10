@@ -1,5 +1,14 @@
 # binance-daytrade
 
+[![painel web](https://github.com/JvFaraco/binance-daytrade/actions/workflows/web.yml/badge.svg)](https://github.com/JvFaraco/binance-daytrade/actions/workflows/web.yml)
+
+**Painel ao vivo: [jvfaraco.github.io/binance-daytrade](https://jvfaraco.github.io/binance-daytrade/)**
+
+- [Modo Lite](https://jvfaraco.github.io/binance-daytrade/?modo=lite): o veredito numa tela só, para quem nunca operou.
+- [Modo Pro](https://jvfaraco.github.io/binance-daytrade/?modo=pro): scanner, esfera com os 10.000 replays, backtest treino × teste e o plano.
+
+Somente análise: dados públicos da Binance, sem chave e sem enviar ordem. Roda no navegador, sem instalar nada.
+
 Day trade spot na Binance feito em skill do Claude: scanner de rompimento, plano,
 simulação das odds, backtest com treino e teste, tamanho da posição, checagem de
 risco e envio da ordem só depois do seu sim. Testnet por padrão. Python 3.8+, só
@@ -11,14 +20,14 @@ mas escrito do zero para a Binance. Nenhum código foi copiado.
 ## Instalar
 
 ```powershell
-# Windows (PowerShell): extrai em Downloads e aponta $S pros scripts
-tar -xzf binance-daytrade.tar.gz
-$S = "$env:USERPROFILE\Downloads\binance-daytrade\scripts"
+# Windows (PowerShell): baixa o repositório e aponta $S pros scripts
+git clone https://github.com/JvFaraco/binance-daytrade.git
+$S = "$PWD\binance-daytrade\scripts"
 ```
 
 ```bash
 # como skill do Claude Code
-cp -r binance-daytrade ~/.claude/skills/
+git clone https://github.com/JvFaraco/binance-daytrade.git ~/.claude/skills/binance-daytrade
 ```
 
 Na pasta do projeto: `cp config.example.json trader/config.json` e ajuste capital, perda
@@ -63,6 +72,9 @@ horário, onde só sobrevive quem opera pouco e só com sinal maior que o custo.
 
 ## Painel web
 
+**Abrir:** [jvfaraco.github.io/binance-daytrade](https://jvfaraco.github.io/binance-daytrade/)
+([Lite](https://jvfaraco.github.io/binance-daytrade/?modo=lite) · [Pro](https://jvfaraco.github.io/binance-daytrade/?modo=pro))
+
 `web/` é um painel de **análise** (não envia ordem, não pede chave) que mostra a conclusão acima
 com dados públicos e ao vivo da Binance: scanner, preço com a faixa inicial, os 10.000 replays do
 Time Machine numa esfera, a grade do backtest em treino × teste e o bruto × líquido das estratégias.
@@ -87,7 +99,8 @@ cd web && npm ci && npm run dev
 ```
 
 Detalhes, o que foi verificado e limites em [`web/README.md`](web/README.md). O workflow
-`.github/workflows/web.yml` testa e publica no GitHub Pages (`/binance-daytrade/`).
+`.github/workflows/web.yml` testa e publica no GitHub Pages a cada push na `main` que mexa em
+`web/`, `scripts/` ou `tests/`.
 
 ## Testes
 
