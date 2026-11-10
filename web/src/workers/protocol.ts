@@ -74,6 +74,8 @@ export interface TimeMachineResult {
   sphere: SphereBuffers | null;
   /** tempo só dos replays, em ms */
   mcMs: number;
+  /** os mesmos replays no modo em blocos (bootstrap estacionário); só no Pro, null no Lite */
+  blocks: { exit: Float64Array; outcome: Uint8Array; meanBlock: number; ms: number } | null;
 }
 
 export interface GridResult {

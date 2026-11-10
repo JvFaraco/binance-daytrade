@@ -190,6 +190,66 @@ export function runMcRaw(plan: Plan, sessions: ReadonlyArray<Session>, replays: 
   return { replays, seed, entry, stop, target, exit, outcome, len, pathLen, paths };
 }
 
+/** Comprimento médio do bloco no modo em blocos: raiz cúbica dos candles do histórico, no mínimo 2. */
+export function blockLength(nSessions: number, n: number): number {
+  return Math.max(2, pyRoundInt(Math.pow(nSessions * n, 1 / 3)));
+}
+
+/**
+ * Porte de run_mc_blocks (bootstrap estacionário): copia trechos seguidos de sessões reais, no
+ * mesmo horário; a cada candle, com chance 1/bloco médio troca de sessão. Mesma ordem de sorteio
+ * do Python: randrange na primeira sessão, depois random() (e randrange se trocar) a cada candle.
+ */
+export function runMcBlocksRaw(plan: Plan, sessions: ReadonlyArray<Session>, replays: number, seed: number, meanBlock?: number | null): McRaw & { meanBlock: number } {
+  const n = Math.trunc(Number(plan.params.flat_by_hours) * 12);
+  const L = meanBlock || blockLength(sessions.length, n);
+  const pNew = 1.0 / L;
+  const rng = new PyRandom(seed);
+  const { entry, stop, target } = plan;
+  const e = Math.trunc(plan.entry_slot);
+  const pathLen = Math.max(1, n - e);
+  const exit = new Float64Array(replays);
+  const outcome = new Uint8Array(replays);
+  const len = new Uint16Array(replays);
+  const ns = sessions.length;
+  for (let i = 0; i < replays; i++) {
+    let price = entry;
+    let out = OUTCOME_OPEN;
+    let exitP = 0;
+    let k = rng.randbelow(ns);
+    let j = 1;
+    for (let slot = e + 1; slot < n; slot++, j++) {
+      if (slot > e + 1 && rng.random() < pNew) k = rng.randbelow(ns);
+      const bars = sessions[k].bars;
+      const pc = bars[slot - 1].c;
+      const b = bars[slot];
+      if ((price * b.l) / pc <= stop) {
+        out = OUTCOME_STOP;
+        exitP = stop;
+        j++;
+        break;
+      }
+      if ((price * b.h) / pc >= target) {
+        out = OUTCOME_TARGET;
+        exitP = target;
+        j++;
+        break;
+      }
+      price *= b.c / pc;
+    }
+    if (out === OUTCOME_OPEN) exitP = price;
+    exit[i] = exitP;
+    outcome[i] = out;
+    len[i] = j;
+  }
+  return { replays, seed, entry, stop, target, exit, outcome, len, pathLen, paths: null, meanBlock: L };
+}
+
+export function runMcBlocks(plan: Plan, sessions: ReadonlyArray<Session>, cfg: Costs, replays: number, seed: number, meanBlock?: number | null): McResult & { mean_block: number } {
+  const raw = runMcBlocksRaw(plan, sessions, replays, seed, meanBlock);
+  return { ...summarizeMc(raw, cfg), mean_block: raw.meanBlock };
+}
+
 /** O mesmo dicionário que run_mc devolve, para uma taxa e um slippage. */
 export function summarizeMc(raw: McRaw, cfg: Costs): McResult {
   const { replays, entry, stop } = raw;

@@ -7,6 +7,8 @@
 
 Simulacao com candles de 5m do proprio par, sorteados do mesmo horario da sessao
 (+- janela). NAO e previsao. Custos (taxa + slippage) entram no R.
+Roda tambem o modo em blocos (bootstrap estacionario: trechos seguidos de sessoes
+reais), que mantem a sequencia de calmaria e agitacao; os dois aparecem lado a lado.
 """
 import argparse
 import json
@@ -94,6 +96,57 @@ def run_mc(plan, sessions, cfg, replays, seed, window):
             "open_p95": percentile(open_prices, 95)}
 
 
+def block_length(n_sessions, n):
+    """Comprimento médio do bloco no modo em blocos: a raiz cúbica do número de candles do
+    histórico (regra usual para o bootstrap estacionário), no mínimo 2."""
+    return max(2, int(round((n_sessions * n) ** (1 / 3.0))))
+
+
+def run_mc_blocks(plan, sessions, cfg, replays, seed, mean_block=None):
+    """Bootstrap estacionário (Politis & Romano, 1994): em vez de sortear cada candle solto,
+    copia TRECHOS SEGUIDOS de sessões reais, no mesmo horário. A cada candle, com chance
+    1/bloco_médio troca de sessão; senão continua na mesma. Mantém a sequência de calmaria e
+    agitação dentro do trecho, que o sorteio solto perde. Mesmo resultado que run_mc devolve."""
+    params = plan["params"]
+    n = int(float(params["flat_by_hours"]) * 12)
+    L = mean_block or block_length(len(sessions), n)
+    p_new = 1.0 / L
+    rng = random.Random(seed)
+    entry, stop, target = plan["entry"], plan["stop"], plan["target"]
+    e = int(plan["entry_slot"])
+    counts = {"target": 0, "stop": 0, "open": 0}
+    rs, open_prices, green = [], [], 0
+    for _ in range(replays):
+        price = entry
+        outcome, exit_p = "open", None
+        k = rng.randrange(len(sessions))
+        for slot in range(e + 1, n):
+            if slot > e + 1 and rng.random() < p_new:
+                k = rng.randrange(len(sessions))
+            bars = sessions[k][1]
+            pc, b = bars[slot - 1]["c"], bars[slot]
+            if price * b["l"] / pc <= stop:      # toca nos dois no mesmo candle: conta como stop
+                outcome, exit_p = "stop", stop
+                break
+            if price * b["h"] / pc >= target:
+                outcome, exit_p = "target", target
+                break
+            price *= b["c"] / pc
+        if outcome == "open":
+            exit_p = price
+            open_prices.append(price)
+        counts[outcome] += 1
+        if outcome == "target" or (outcome == "open" and price > entry):
+            green += 1
+        rs.append(core.net_r(entry, exit_p, stop, cfg["fee_pct"], cfg["slippage_pct"]))
+    open_prices.sort()
+    return {"replays": replays, "seed": seed, "mean_block": L, "counts": counts,
+            "pct": {k2: v / replays * 100 for k2, v in counts.items()},
+            "green_pct": green / replays * 100, "avg_net_r": sum(rs) / len(rs),
+            "open_p5": percentile(open_prices, 5), "open_p50": percentile(open_prices, 50),
+            "open_p95": percentile(open_prices, 95)}
+
+
 def run_history(plan, sessions, cfg):
     params = plan["params"]
     rule, r = plan["stop_rule"], plan["target_r"]
@@ -148,7 +201,7 @@ def verdict(mc, plan, cfg):
     return ("Pende para o stop: " if d > -15 else "Forte para o stop: ") + base
 
 
-def render(plan, mc, hist, verdict_txt, cfg):
+def render(plan, mc, hist, verdict_txt, cfg, mc_b=None):
     pc, c = mc["pct"], mc["counts"]
     L = ["%s | entrada %g, stop %g, alvo %g (%gR) | %d replays, seed %d" % (
         plan["symbol"], plan["entry"], plan["stop"], plan["target"], plan["target_r"], mc["replays"], mc["seed"])]
@@ -159,6 +212,10 @@ def render(plan, mc, hist, verdict_txt, cfg):
                  % (mc["open_p50"], mc["open_p5"], mc["open_p95"]))
     L.append("R médio líquido (já com taxa %.2f%% e slippage %.2f%% por lado): %+.2f"
              % (cfg["fee_pct"], cfg["slippage_pct"], mc["avg_net_r"]))
+    if mc_b:
+        pb = mc_b["pct"]
+        L.append("Em blocos (trechos seguidos de sessões reais, bloco médio de %d candles): alvo %.1f%% | stop %.1f%% | "
+                 "aberto %.1f%% | R médio líquido %+.2f" % (mc_b["mean_block"], pb["target"], pb["stop"], pb["open"], mc_b["avg_net_r"]))
     if hist["fired"]:
         L.append("Histórico real (%d sessões): a regra disparou %d vezes, %d no alvo, %d no stop, %d abertas; R médio líquido %+.2f"
                  % (hist["sessions"], hist["fired"], hist["target"], hist["stop"], hist["open"], hist["avg_net_r"]))
@@ -206,15 +263,16 @@ def main(argv=None):
             print("Erro: só %d sessões completas no histórico (mínimo 20). Aumente --days." % len(sessions))
             return 1
         mc = run_mc(plan, sessions, cfg, a.replays, a.seed, a.window)
+        mc_b = run_mc_blocks(plan, sessions, cfg, a.replays, a.seed)
         hist = run_history(plan, sessions, cfg)
     except (core.TraderError, core.ApiError) as e:
         print("Erro: %s" % e)
         return 1
     v = verdict(mc, plan, cfg)
-    result = {"plan": plan, "mc": mc, "history": hist, "verdict": v}
+    result = {"plan": plan, "mc": mc, "mc_blocos": mc_b, "history": hist, "verdict": v}
     if a.write:
         core.write_json(core.path_in("timemachine.json"), result)
-    print(json.dumps(result, indent=2) if a.json else render(plan, mc, hist, v, cfg))
+    print(json.dumps(result, indent=2) if a.json else render(plan, mc, hist, v, cfg, mc_b))
     return 0
 
 

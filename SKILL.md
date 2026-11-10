@@ -38,6 +38,8 @@ python3 "$S/broker.py" show
 python3 "$S/history.py" fetch BTCUSDT --months 12       # zips mensais públicos da Binance
 python3 "$S/backtest.py" run BTCUSDT --months 12        # varredura com treino/teste
 python3 "$S/research.py" all BTCUSDT,SOLUSDT,ETHUSDT --months 12   # hipóteses da literatura, walk-forward
+python3 "$S/lab.py" fetch && python3 "$S/lab.py" run   # cemitério: 15 estratégias, 5 pares, 36 meses, 41 custos
+python3 "$S/lab.py" show                                # resumo do último resultado
 ```
 
 ## O que os dados mostraram (BTC e SOL, nov/2025 a out/2026)
@@ -52,6 +54,15 @@ horário (21–23 UTC), e trend-following diário (Donchian) com poucas operaç�
 sempre bruto vs líquido, walk-forward e a comparação com comprar-e-segurar no mesmo
 trecho. Se o usuário perguntar "o que faz dinheiro", a resposta é: rode isso em 3 pares
 e 24+ meses, e só leve a sério o que ganhar de comprar-e-segurar no walk-forward.
+
+O `lab.py` fez exatamente isso com as estratégias populares (médias, RSI, MACD, Bollinger,
+SuperTrend, Ichimoku, o robô Grid da Binance) e as da literatura (momentum, filtro de
+tendência, rotação, Dual Thrust, fim de semana), mais as do projeto: BTC, ETH, SOL, BNB e
+XRP, nov/2023 a out/2026, walk-forward, Sharpe deflacionado contando as 33 variações.
+**Nenhuma sobrevive, em nenhum custo.** Ichimoku e Donchian ganham do comprar e segurar em
+4 e 3 dos 5 pares, mas não passam da barra da sorte (Sharpe ~1,27). Quando o usuário trouxer
+"a estratégia do curso" ou "o robô da corretora", mostre o `lab.py show` antes de qualquer
+trade, e diga que o período foi de alta forte para BTC, BNB e XRP.
 
 ## A estratégia
 

@@ -2,6 +2,7 @@ import contextlib
 from decimal import Decimal
 import io
 import json
+import math
 import os
 import random
 import sys
@@ -11,7 +12,7 @@ from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
-import core, scan, plan as planmod, timemachine, size, risk, broker, history, backtest, research  # noqa: E402
+import core, scan, plan as planmod, timemachine, size, risk, broker, history, backtest, research, lab  # noqa: E402
 import zipfile
 
 IV = core.IV
@@ -400,6 +401,36 @@ class TestTimeMachine(unittest.TestCase):
         mc = timemachine.run_mc(self.plan, ss, CFG, 200, 19, 0)
         self.assertEqual(mc["counts"]["stop"], 200)
 
+    def test_blocks_deterministic_and_sums(self):
+        ss = timemachine.full_sessions(self.history(30), self.plan["params"], S)
+        a = timemachine.run_mc_blocks(self.plan, ss, CFG, 2000, 19)
+        self.assertEqual(a, timemachine.run_mc_blocks(self.plan, ss, CFG, 2000, 19))
+        self.assertEqual(sum(a["counts"].values()), 2000)
+        self.assertAlmostEqual(sum(a["pct"].values()), 100.0)
+        self.assertEqual(a["mean_block"], round((len(ss) * 96) ** (1 / 3)))
+        self.assertNotEqual(a["counts"], timemachine.run_mc_blocks(self.plan, ss, CFG, 2000, 7)["counts"])
+
+    def test_blocks_keep_the_sequence_that_loose_candles_lose(self):
+        # metade das sessões é parada, metade sobe 0,5% a cada candle depois do slot 14
+        bars = []
+        for d in range(24):
+            s = S - (24 - d) * 86400000
+            p, sess = 100.0, []
+            for i in range(96):
+                c = p * 1.005 if (d % 2 and i > 14) else p
+                sess.append({"t": s + i * IV, "o": p, "h": max(p, c), "l": p, "c": c, "v": 1})
+                p = c
+            bars += sess
+        ss = timemachine.full_sessions(bars, self.plan["params"], S)
+        whole = timemachine.run_mc_blocks(self.plan, ss, CFG, 2000, 19, mean_block=10 ** 9)
+        # sessão inteira: ou sobe até o alvo, ou fica parada no preço de entrada
+        self.assertEqual(whole["counts"]["stop"], 0)
+        self.assertEqual((whole["open_p5"], whole["open_p95"]), (self.plan["entry"], self.plan["entry"]))
+        self.assertAlmostEqual(whole["pct"]["target"], 50, delta=5)
+        loose = timemachine.run_mc(self.plan, ss, CFG, 2000, 19, 2)
+        # candles soltos misturam as duas: quase todo replay sobe um pouco e chega ao alvo
+        self.assertGreater(loose["pct"]["target"], 90)
+
     def test_history_rule_replays_known_session(self):
         # pregoes iguais: rompe no slot 14 a 101.5, stop 100, alvo 103.75; depois sobe a 104
         sessions = []
@@ -442,6 +473,10 @@ class TestTimeMachine(unittest.TestCase):
                 self.assertEqual(rc, 0, buf.getvalue())
                 self.assertIn("Veredito:", buf.getvalue())
                 self.assertTrue(os.path.exists(os.path.join(d, "timemachine.json")))
+                self.assertIn("Em blocos", buf.getvalue())
+                saved = core.read_json(os.path.join(d, "timemachine.json"))
+                self.assertEqual(sum(saved["mc_blocos"]["counts"].values()), 500)
+                self.assertIn("avg_net_r", saved["mc"])          # o que o risk.py lê não mudou
             finally:
                 os.environ.pop("TRADER_DIR", None)
 
@@ -1030,6 +1065,208 @@ class TestResearch(unittest.TestCase):
             self.assertEqual(rc, 0, buf.getvalue())
             self.assertIn("Resumo", buf.getvalue())
             self.assertIn("walk-forward", buf.getvalue())
+
+
+def daily_bars(closes, start=None, spread=0.01, vol=1.0):
+    start = core.utc_ms("2026-01-05 00:00") if start is None else start   # uma segunda-feira
+    return [{"t": start + i * lab.DAY, "o": c, "h": c * (1 + spread), "l": c * (1 - spread), "c": c, "v": vol}
+            for i, c in enumerate(closes)]
+
+
+class TestLab(unittest.TestCase):
+    """A régua do laboratório: custo, posições, indicadores, regras, walk-forward e detector de sorte."""
+
+    def test_cost_model_is_a_factor_per_side(self):
+        s = {"G": [1.1, 1.0, 1.0], "T": [1, 1, 0], "E": [1, 0, 0], "X": [1, 1, 0]}
+        r = lab.net_returns(s, 0.001)
+        self.assertAlmostEqual(r[0], 1.1 * 0.999 - 1)
+        self.assertAlmostEqual(r[1], 0.999 - 1)
+        self.assertEqual(r[2], 0.0)
+        self.assertAlmostEqual(lab.net_returns(s, 0.0)[0], 0.1)
+
+    def test_from_positions_charges_turnover_and_compounds(self):
+        bars = daily_bars([100 + i for i in range(11)])
+        d0 = bars[0]["t"] // lab.DAY
+        s = lab.from_positions(bars, [1.0] * 11, d0, 11)
+        g = 1.0
+        for x in s["G"]:
+            g *= x
+        self.assertAlmostEqual(g, 110 / 100)
+        self.assertEqual(sum(s["T"]), 1)          # só a entrada
+        self.assertEqual(sum(s["E"]), 1)
+        flip = lab.from_positions(bars, [1.0, 0.0] * 5 + [1.0], d0, 11)
+        self.assertEqual(sum(flip["T"]), 11)      # entra, sai, entra...: um lado a cada barra
+
+    def test_indicators(self):
+        self.assertEqual(lab.sma([1, 2, 3, 4], 2), [None, 1.5, 2.5, 3.5])
+        e = lab.ema([1, 2, 3, 4, 5], 3)
+        self.assertEqual(e[:2], [None, None])
+        self.assertAlmostEqual(e[2], 2.0)              # semente = média simples
+        self.assertAlmostEqual(e[3], 0.5 * 4 + 0.5 * 2.0)
+        self.assertEqual(lab.rsi(list(range(1, 30)), 14)[-1], 100.0)
+        alt = [100 + (i % 2) for i in range(40)]
+        self.assertAlmostEqual(lab.rsi(alt, 14)[-1], 50.0, delta=5)
+        bars = daily_bars([100] * 20, spread=0.01)
+        self.assertAlmostEqual(lab.atr(bars, 10)[-1], 2.0, places=6)
+
+    def test_trend_rules_follow_the_trend(self):
+        down_up = daily_bars([100 - i for i in range(30)] + [70 + 2 * i for i in range(40)])
+        for pos in (lab.pos_ma_cross(down_up, 9, 21, "ema"), lab.pos_macd(down_up), lab.pos_supertrend(down_up, 10, 3)):
+            self.assertEqual(pos[25], 0.0)          # caindo: fora
+            self.assertEqual(pos[-1], 1.0)          # subindo há semanas: dentro
+        self.assertEqual(lab.pos_trend_filter(down_up, 20)[-1], 1.0)
+        self.assertEqual(lab.pos_trend_filter(down_up, 20)[28], 0.0)
+        self.assertEqual(lab.pos_donchian(down_up, 10)[-1], 1.0)
+        up = daily_bars([100 * 1.01 ** i for i in range(120)])
+        self.assertEqual(lab.pos_ichimoku(up)[-1], 1.0)
+        self.assertEqual(lab.pos_ichimoku(daily_bars([100 * 0.99 ** i for i in range(120)]))[-1], 0.0)
+
+    def test_mean_reversion_rules_buy_the_dip_and_sell_the_bounce(self):
+        bars = daily_bars([100] * 20 + [100 - 3 * i for i in range(1, 11)] + [70 + 4 * i for i in range(1, 21)])
+        r = lab.pos_rsi(bars)
+        self.assertEqual(r[19], 0.0)
+        self.assertEqual(r[29], 1.0)                # despencou: RSI abaixo de 30 compra
+        self.assertEqual(r[-1], 0.0)                # subiu sem parar: RSI acima de 70 vende
+        noisy = [100 + (1 if i % 2 else -1) for i in range(30)] + [90] + [100] * 5
+        b = lab.pos_bollinger(daily_bars(noisy))
+        self.assertEqual(b[29], 0.0)
+        self.assertEqual(b[30], 1.0)                # fechou abaixo da banda de baixo
+        self.assertEqual(b[-1], 0.0)                # voltou acima da média
+
+    def test_calendar_rules(self):
+        week = daily_bars([100] * 14)               # começa numa segunda
+        self.assertEqual([lab.weekday(b["t"]) for b in week[:7]], [0, 1, 2, 3, 4, 5, 6])
+        self.assertEqual(lab.pos_weekend(week)[:7], [0, 0, 0, 0, 1, 1, 0])   # decide sexta e sábado
+        bars = daily_bars([100 + i for i in range(30)])
+        mom = lab.pos_ts_momentum(bars, 5)
+        changes = [i for i in range(1, 30) if mom[i] != mom[i - 1]]
+        self.assertTrue(changes)
+        self.assertTrue(all(lab.weekday(bars[i]["t"]) == 6 for i in changes))
+        hourly = [{"t": core.utc_ms("2026-01-05 00:00") + h * lab.HOUR, "o": 1, "h": 1, "l": 1, "c": 1, "v": 1} for h in range(48)]
+        pos = lab.pos_season(hourly)
+        held = [hourly[i + 1]["t"] // lab.HOUR % 24 for i in range(len(hourly) - 1) if pos[i]]
+        self.assertEqual(sorted(set(held)), [21, 22])
+
+    def test_grid_profits_from_oscillation_and_needs_price_to_cross(self):
+        start = core.utc_ms("2026-03-01 00:00")
+        d0 = start // lab.DAY
+        lv = [90 * (110 / 90) ** (j / 10) for j in range(11)]
+        bars = [{"t": start, "o": 100, "h": 100.1, "l": 99.9, "c": 100, "v": 1}]
+        for i in range(1, 200):                     # oscila entre 96 e 104, cruzando degraus
+            up = i % 2 == 0
+            bars.append({"t": start + i * lab.HOUR, "o": 100, "h": 104 if up else 100.5, "l": 99.5 if up else 96, "c": 100, "v": 1})
+        s = lab.grid_series(bars, d0, 10, 10)
+        g = 1.0
+        for x in s["G"]:
+            g *= x
+        self.assertGreater(g, 1.0)                  # cada ida e volta rende um degrau
+        self.assertGreater(sum(s["E"]), 10)
+        below = max(x for x in lv if x < 100)
+        touch = [{"t": start, "o": 100, "h": 100, "l": 100, "c": 100, "v": 1},
+                 {"t": start + lab.HOUR, "o": 100, "h": 100, "l": below, "c": 100, "v": 1}]
+        self.assertEqual(sum(lab.grid_series(touch, d0, 2, 10)["E"]), 0)   # encostar no degrau não executa
+
+    def test_orb_series_uses_the_project_rule(self):
+        bars = session_with_breakout(S)
+        d0 = S // lab.DAY
+        s = lab.orb_series(bars, d0, 1, CFG, "or-mid", 1.5)
+        self.assertEqual((s["T"][0], s["E"][0]), (2, 1))
+        self.assertAlmostEqual(s["G"][0], 100 / 101.5)   # sem alvo nem stop: zera no fechamento
+
+    def test_dual_thrust_enters_at_trigger_and_exits_at_close(self):
+        start = core.utc_ms("2026-01-05 00:00")
+        daily = daily_bars([100, 100, 100, 100, 100], start=start, spread=0.01)   # faixa = max(101-100, 100-99) = 1
+        day = start + 4 * lab.DAY
+        m5 = [{"t": day + i * IV, "o": 100, "h": 100.2, "l": 99.9, "c": 100, "v": 1} for i in range(288)]
+        m5[100] = dict(m5[100], h=101.5, c=101.2)
+        m5[-1] = dict(m5[-1], c=102.0)
+        s = lab.dual_thrust_series(m5, daily, start // lab.DAY, 5, n=4, k=0.5)
+        self.assertAlmostEqual(s["G"][4], 102.0 / 100.5)   # gatilho = abertura 100 + 0,5 x 1
+        self.assertEqual((s["T"][4], s["E"][4]), (2, 1))
+
+    def test_rotation_buys_what_rose(self):
+        n = 80
+        uni = {"UPUSDT": daily_bars([100 * 1.01 ** i for i in range(n)]),
+               "DOWNXUSDT": daily_bars([100 * 0.99 ** i for i in range(n)]),
+               "FLATUSDT": daily_bars([100.0] * n)}
+        d0 = uni["UPUSDT"][0]["t"] // lab.DAY
+        s = lab.rotation_series(uni, d0, n, 7)
+        self.assertGreater(max(s["X"]), 0.19)            # 1 de 5 vagas: 20% investido
+        self.assertLessEqual(max(s["X"]), 0.2 * 1.01 ** 7 + 1e-6)   # só a que subiu: 20%, crescendo na semana
+        g = 1.0
+        for x in s["G"]:
+            g *= x
+        self.assertGreater(g, 1.0)
+
+    def test_blocks_cover_the_window_without_gaps(self):
+        _, ev, end = lab.window(core.utc_ms("2026-11-01 00:00"))
+        bl = lab.blocks_for(ev, end)
+        self.assertEqual(len(bl), 12)
+        self.assertEqual(bl[0][0], 0)
+        self.assertEqual(bl[-1][1], end // lab.DAY - ev // lab.DAY)
+        self.assertTrue(all(bl[i][1] == bl[i + 1][0] for i in range(len(bl) - 1)))
+        self.assertEqual(lab.ymd(ev), "2023-11-01")
+
+    def test_walk_forward_picks_by_the_past_only(self):
+        n = 40
+        a = {"G": [1.01] * 20 + [0.99] * 20, "T": [0] * n, "E": [0] * n, "X": [1] * n}
+        b = {"G": [0.995] * 20 + [1.02] * 20, "T": [0] * n, "E": [0] * n, "X": [1] * n}
+        for s in (a, b):                                   # um pouco de ruído para o Sharpe existir
+            s["G"] = [g * (1 + (0.001 if i % 2 else -0.001)) for i, g in enumerate(s["G"])]
+        oos, _, _, chosen = lab.walk_forward([a, b], 0.0, [(0, 10), (10, 20), (20, 30), (30, 40)])
+        self.assertEqual(chosen[:2], [0, 0])               # até o dia 20, a era a melhor
+        self.assertEqual(len(oos), 30)                     # o primeiro bloco só treina
+
+    def test_deflated_sharpe_punishes_many_trials(self):
+        one = lab.deflated_sharpe(0.1, 1000, 0.0, 3.0, 1, 0.0)
+        self.assertAlmostEqual(one, lab.ND.cdf(0.1 * math.sqrt(999) / math.sqrt(1 + 2 / 4 * 0.01)))
+        few = lab.deflated_sharpe(0.1, 1000, 0.0, 3.0, 5, 0.001)
+        many = lab.deflated_sharpe(0.1, 1000, 0.0, 3.0, 100, 0.001)
+        self.assertGreater(one, few)
+        self.assertGreater(few, many)
+        self.assertIsNone(lab.deflated_sharpe(None, 1000, 0, 3, 5, 0.001))
+        # barra da sorte: sobe com o número de tentativas, cai com mais dias de dados
+        h33 = lab.luck_hurdle(33, lab.null_var(1004)) * math.sqrt(365)
+        self.assertAlmostEqual(h33, 1.28, delta=0.05)
+        self.assertGreater(lab.luck_hurdle(100, lab.null_var(1004)), lab.luck_hurdle(33, lab.null_var(1004)))
+        self.assertLess(lab.luck_hurdle(33, lab.null_var(4000)), lab.luck_hurdle(33, lab.null_var(1004)))
+        self.assertEqual(lab.luck_hurdle(1, lab.null_var(1004)), 0.0)
+
+    def test_pbo(self):
+        rng = random.Random(3)
+        good = [0.002 + rng.gauss(0, 0.001) for _ in range(400)]
+        bad = [-0.002 + rng.gauss(0, 0.001) for _ in range(400)]
+        self.assertEqual(lab.pbo_cscv([good, bad]), 0.0)   # a campeã do treino é sempre a melhor no teste
+        flip_a = [(0.01 if (i // 50) % 2 == 0 else -0.01) + rng.gauss(0, 0.001) for i in range(400)]
+        flip_b = [-x for x in flip_a]
+        self.assertGreater(lab.pbo_cscv([flip_a, flip_b]), 0.4)
+        self.assertIsNone(lab.pbo_cscv([good]))
+
+    def test_breakeven_matches_closed_form(self):
+        n = 30
+        s = {"G": [1.0] * n, "T": [0.0] * n, "E": [0] * n, "X": [0.0] * n}
+        s["G"][15], s["T"][15] = 1.01, 2.0
+        be = lab.breakeven([s], [(0, 10), (10, 20), (20, 30)])
+        self.assertAlmostEqual(be, (1 - 1.01 ** (-1 / 2)) * 100, places=3)
+        s["G"][15] = 0.99
+        self.assertIsNone(lab.breakeven([s], [(0, 10), (10, 20), (20, 30)]))
+
+    def test_buy_hold_and_dca_baselines(self):
+        bars = daily_bars([100.0] * 10 + [110.0] * 10)
+        d0 = bars[0]["t"] // lab.DAY
+        r = lab.buy_hold_oos(bars, d0, 20, 5, 0.001)
+        eq = 1.0
+        for x in r:
+            eq *= 1 + x
+        self.assertAlmostEqual(eq, 1.1 * 0.999)
+        self.assertGreater(lab.dca_oos(bars, d0, 20, 0, 0.0), 0)
+
+    def test_catalog_counts_every_variant(self):
+        self.assertEqual(lab.n_trials(), sum(len(s["variants"]) for s in lab.STRATEGIES) + 2)
+        self.assertEqual(len({s["key"] for s in lab.STRATEGIES} | {lab.ROTATION["key"]}), len(lab.STRATEGIES) + 1)
+        self.assertEqual(lab.COSTS[0], 0.0)
+        self.assertEqual(lab.COSTS[-1], 0.2)
+        self.assertIn(lab.DEFAULT_COST, lab.COSTS)
 
 
 HOUR_MS = 3600000

@@ -6,14 +6,15 @@
   max-width: 1920px;
   margin: 0 auto;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-rows: auto auto 470px 190px 330px 350px;
+  grid-template-rows: auto auto 494px 190px 330px 350px auto;
   grid-template-areas:
     "top   top   top   top    top    top    top    top    top    top   top   top"
     "ctl   ctl   ctl   ctl    ctl    ctl    ctl    ctl    ctl    ctl   ctl   ctl"
     "scan  scan  scan  sphere sphere sphere sphere sphere sphere stats stats stats"
     "scan  scan  scan  sphere sphere sphere sphere sphere sphere plan  plan  plan"
     "price price price price  price  price  pipe   pipe   pipe   plan  plan  plan"
-    "grid  grid  grid  grid   grid   dumb   dumb   dumb   pareto pareto tape tape";
+    "grid  grid  grid  grid   grid   dumb   dumb   dumb   pareto pareto tape tape"
+    "cem   cem   cem   cem    cem    cem    cem    cem    cem    cem   cem   cem";
 }
 
 .board__wait {
@@ -28,7 +29,7 @@
 @media (max-width: 1279px) {
   .board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto auto 460px auto 420px 300px 360px auto auto;
+    grid-template-rows: auto auto 460px auto 420px 300px 360px auto auto auto;
     grid-template-areas:
       "top    top"
       "ctl    ctl"
@@ -38,7 +39,8 @@
       "scan   pipe"
       "grid   grid"
       "dumb   pareto"
-      "tape   tape";
+      "tape   tape"
+      "cem    cem";
   }
 }
 
@@ -62,7 +64,8 @@
       "grid"
       "dumb"
       "pareto"
-      "tape";
+      "tape"
+      "cem";
   }
 }
 

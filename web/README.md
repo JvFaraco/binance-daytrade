@@ -37,12 +37,13 @@ são estados desenhados; não há valor de enfeite.
 | Preço ao vivo | candles de 5m (REST + WebSocket `kline_5m`), faixa inicial e candle de rompimento do sinal |
 | Pipeline | tempo medido de cada etapa: scan → plan → timemachine → size → risk. O broker aparece apagado: "não enviado" |
 | Esfera (Time Machine) | 10.000 replays com seed 19 e janela ±2, como `timemachine.py`; 60 dias de candles do par |
-| Odds do plano | R médio líquido, % de replays com R líquido > 0, p5/p50/p95, drawdown, veredito do `timemachine.py` |
+| Odds do plano | R médio líquido, % de replays com R líquido > 0, p5/p50/p95, drawdown, veredito do `timemachine.py`; a linha "em blocos" são os mesmos replays no modo em blocos (`run_mc_blocks`) |
 | Plano | `plan.py` + `size.py` (com `exchangeInfo` e `avgPrice` reais) + `risk.py`; diagrama OTOCO **não enviada** |
 | Grade do backtest | as 96 combinações do `backtest.py`, treino 70% / teste 30%, em 3, 6 ou 12 meses |
 | Bruto × líquido | rompimento, sazonalidade 21–23 UTC, Donchian diário (fixo e walk-forward) e comprar e segurar |
 | Sinais rejeitados | por que cada sessão do período não virou trade, com a mensagem que o motor devolve |
 | Fita e telemetria | `aggTrade` ao vivo; peso de API, latência do WS, candles em memória, tempo do worker, fps |
+| Cemitério de estratégias | `public/cemiterio.json`, gerado pelo `scripts/lab.py` (36 meses, 5 pares, 41 custos); o painel só escolhe a linha do custo do controle, conta e explica |
 
 Quando o par escolhido não rompeu na sessão atual, o plano vem do **último rompimento do histórico**
 e fica marcado como "replay de dd/mm". O `testplan` do skill não é usado: ele não é um setup.
@@ -173,9 +174,40 @@ duas colunas, celular com a esfera no topo e painéis recolhíveis.
 
 ![Celular](docs/painel-celular.png)
 
+## Cemitério de estratégias
+
+A aba do modo Pro mostra o resultado do laboratório (`scripts/lab.py`, ver o README da raiz): 15
+estratégias, 33 variações, 5 pares, fora da amostra de fev/2024 a out/2026. O resultado é
+pré-calculado em Python para os 41 custos do controle (de 0 a 0,20%, de 0,005 em 0,005), então
+arrastar o controle troca a linha sem recalcular nada no navegador e sem aproximação.
+
+![Cemitério no celular](docs/cemiterio-celular.png)
+
+- **Uma linha por estratégia:** pares em que ganha do comprar e segurar, pares com lucro, melhor
+  Sharpe (contra a barra da sorte), custo de equilíbrio e o veredito com o motivo. Clicar abre a
+  tabela por par: líquido, comprar e segurar, Sharpe, queda máxima, operações, Sharpe deflacionado,
+  equilíbrio, PBO e a variação que o walk-forward escolheu.
+- **Por que o motor não foi portado:** as 15 regras ficam num lugar só, com teste por regra; o TS
+  só lê. `tests/lab.test.ts` confere que as contagens do painel batem com as do Python nos 41 custos,
+  e `tests/lab.dom.test.tsx` que o controle troca os números da tela.
+- **Atualizar:** `python scripts/lab.py fetch && python scripts/lab.py run`, depois commit do JSON.
+  A data da pesquisa aparece no cabeçalho do painel.
+
+## Time Machine em blocos
+
+Além do sorteio de candles soltos, o Time Machine roda os mesmos replays no **modo em blocos**
+(bootstrap estacionário, Politis & Romano, 1994): copia trechos seguidos de sessões reais, no mesmo
+horário, trocando de sessão com chance 1/bloco médio a cada candle. O bloco médio é a raiz cúbica do
+número de candles do histórico (14 com 30 sessões de 96 candles). Isso mantém a sequência de calmaria e
+agitação que o sorteio solto perde. O resultado aparece numa linha do painel de odds; só o Pro calcula.
+Paridade exata com o `run_mc_blocks` do Python (mesma ordem de sorteio).
+
 ## O que foi verificado
 
-- Lint, tipos, 107 testes Vitest (paridade, peças do painel, fluxo ao vivo e modo Lite), 73 testes Python e build de produção.
+- Lint, tipos, 130 testes Vitest (paridade, peças do painel, fluxo ao vivo, modo Lite e Cemitério), 92 testes Python e build de produção.
+- Cemitério no Edge (Playwright) contra o build de produção, em 1440 e 390 px: sem scroll horizontal,
+  sem erro de console, linha aberta com a tabela por par; o painel de odds com a linha "em blocos"
+  cabe na grade sem estourar a altura.
 - Modo Lite no Chromium contra a Binance real, em 1440 e 375 px: sem scroll horizontal, sem erro de console,
   nenhum pedido de three.js nem do pedaço do Pro; troca Lite → Pro → Lite sem recarregar, com os mesmos
   números, e `?modo=` vencendo o valor salvo. Lighthouse do Lite (2 execuções): 100 / 100 / 100, com
@@ -210,7 +242,10 @@ duas colunas, celular com a esfera no topo e painéis recolhíveis.
 ## Limites honestos
 
 - O Time Machine sorteia candles de 5m como se fossem independentes: perde a sequência de
-  volatilidade e as caudas gordas. É checagem de sanidade, não previsão.
+  volatilidade e as caudas gordas. O modo em blocos corrige parte disso; os dois são checagem de
+  sanidade, não previsão.
+- O Cemitério é um período só (36 meses, de alta para BTC, BNB e XRP) e a rotação tem viés de
+  sobrevivência a favor dela. Detalhes nas notas do próprio painel.
 - "0 de 88" no README da raiz veio de 12 meses em BTC e SOL. O painel mostra a contagem do par e
   do período carregados, que pode ser outra, e abre com 3 meses.
 - Um par e um período não provam nada sozinhos. A grade escolhe no treino e mostra no teste, mas

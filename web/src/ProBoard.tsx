@@ -1,5 +1,6 @@
 // Modo Pro: o painel completo. Este arquivo (e tudo que só ele importa, inclusive a esfera em
 // three.js) fica num pedaço separado do build, carregado só quando o Pro é aberto.
+import { CemiterioPanel } from "./panels/CemiterioPanel";
 import { Controls } from "./panels/Controls";
 import { DumbbellPanel } from "./panels/DumbbellPanel";
 import { GridPanel } from "./panels/GridPanel";
@@ -28,6 +29,7 @@ export default function ProBoard() {
       <DumbbellPanel />
       <ParetoPanel />
       <TapePanel />
+      <CemiterioPanel />
     </>
   );
 }
