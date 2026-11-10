@@ -70,6 +70,70 @@ Referências: Padysak & Vojtko (2022) sobre seasonality/trend em BTC horário; C
 sobre Donchian em cripto líquido de taxas; arXiv 2606.00060 (2026) sobre walk-forward em BTC
 horário, onde só sobrevive quem opera pouco e só com sinal maior que o custo.
 
+## Cemitério de estratégias (5 pares, 36 meses)
+
+O `lab.py` põe as estratégias mais usadas por cursos, corretoras e no TradingView, o **robô Grid da
+própria Binance** e as que os estudos apontam como as melhores candidatas, todas na **mesma régua**,
+junto com as regras deste projeto:
+
+- custo por lado de 0 a 0,20% (o resultado sai para cada passo de 0,005%);
+- BTC, ETH, SOL, BNB e XRP, de nov/2023 a out/2026; walk-forward em blocos de 3 meses, e só o
+  trecho **fora da amostra** conta (fev/2024 → out/2026, 1.004 dias);
+- comparação com comprar e segurar e com DCA semanal no mesmo trecho;
+- parâmetros populares declarados antes de rodar, e **todas as 33 variações contam** no detector de sorte.
+
+**Viva** = ganha do comprar e segurar (Sharpe líquido) **e** passa da barra da sorte (Sharpe
+deflacionado ≥ 95%) em pelo menos 3 dos 5 pares. A barra: com 33 tentativas sem habilidade nenhuma,
+a melhor chega a Sharpe anual ~1,27 só por sorte.
+
+**Resultado: 0 de 15 sobrevivem, em nenhum custo, nem com taxa zero.**
+
+| Estratégia | Ganha do comprar e segurar (sem taxa → 0,15%) | Com lucro (0,15%) | Melhor Sharpe (0,15%) | Custo de equilíbrio (mediana) |
+| --- | --- | --- | --- | --- |
+| Ichimoku | 5 → 4 de 5 | 5 de 5 | 1,13 | 1,30% |
+| Donchian | 4 → 3 de 5 | 5 de 5 | 1,12 | > 2% |
+| Comprar e segurar com filtro | 2 → 2 de 5 | 4 de 5 | 1,07 | 1,58% |
+| Cruzamento de médias | 2 → 1 de 5 | 3 de 5 | 0,92 | > 2% |
+| Bandas de Bollinger | 1 → 1 de 5 | 2 de 5 | 1,15 | 0,003% |
+| SuperTrend | 0 → 1 de 5 | 3 de 5 | 0,51 | nunca |
+| Momentum de tendência | 2 → 1 de 5 | 5 de 5 | 0,65 | 0,69% |
+| Dual Thrust | 5 → 1 de 5 | 2 de 5 | 0,96 | 0,14% |
+| RSI 30/70 | 0 → 0 de 5 | 1 de 5 | 0,45 | nunca |
+| MACD | 1 → 0 de 5 | 4 de 5 | 0,68 | 0,50% |
+| Grid (robô da Binance) | 1 → 0 de 5 | 2 de 5 | 0,58 | 0,08% |
+| Fim de semana | 2 → 0 de 5 | 3 de 5 | 0,37 | 0,15% |
+| Rompimento da faixa inicial | 0 → 0 de 5 | 0 de 5 | −1,40 | nunca |
+| Horário 21–23h UTC | 4 → 0 de 5 | 0 de 5 | −3,09 | 0,04% |
+| Rotação entre as 20 maiores (carteira) | 0 → 0 | 0 | −0,07 | nunca |
+
+Como ler:
+
+- **Ichimoku e Donchian chegam mais perto.** Ganham do comprar e segurar em 4 e 3 dos 5 pares, mas o
+  Sharpe deles (1,13 e 1,12) não passa do que a sorte daria com 33 tentativas.
+- **Dual Thrust e Horário 21–23h morrem pela taxa.** Sem custo, ganham do comprar e segurar em 5 e 4
+  pares; o lucro zera com 0,14% e 0,04% por lado.
+- **O Grid e o RSI perdem do comprar e segurar mesmo de graça** em quase todos os pares.
+- **Comprar e segurar foi muito forte no período:** BTC +82%, BNB +134%, XRP +148%. ETH e SOL ficaram
+  perto de zero, com quedas de 68% e 76% no caminho.
+- O custo de equilíbrio é a taxa por lado em que o lucro fora da amostra zera; "nunca" = não dá
+  lucro nem de graça.
+
+```powershell
+python $S\lab.py fetch      # 43 meses de 5m dos 5 pares (~85 MB em trader/) e o diário do universo da rotação
+python $S\lab.py run        # grava web/public/cemiterio.json, que o painel lê
+python $S\lab.py show       # o resumo no console
+```
+
+No painel, a aba **Cemitério de estratégias** (modo Pro) mostra tudo isso para o custo do controle, com
+a tabela por par de cada estratégia; o modo Lite mostra só a contagem.
+
+![Cemitério de estratégias](web/docs/cemiterio-desktop.png)
+
+Limites: um período só (e de alta para BTC, BNB e XRP); a rotação usa as moedas de maior volume
+hoje (viés de sobrevivência **a favor** dela); o Grid é simulado em candles de 1h, com ordem limite
+executando só se o preço atravessa o degrau; com custo maior, o walk-forward pode trocar para a
+variante que gira menos, e por isso uma estratégia às vezes melhora quando o custo sobe.
+
 ## Painel web
 
 **Abrir:** [jvfaraco.github.io/binance-daytrade](https://jvfaraco.github.io/binance-daytrade/)
@@ -108,12 +172,15 @@ Detalhes, o que foi verificado e limites em [`web/README.md`](web/README.md). O 
 python3 -m unittest discover -s tests -v
 ```
 
-73 testes, offline, com candles sintéticos e uma corretora falsa. Cobrem o sinal, o
-dimensionamento e os filtros, os limites de risco, a simulação, o backtest, a leitura
-dos zips mensais (com timestamps em microssegundos), a assinatura HMAC (contra o
+92 testes, offline, com candles sintéticos e uma corretora falsa. Cobrem o sinal, o
+dimensionamento e os filtros, os limites de risco, a simulação (inclusive o modo em blocos), o
+backtest, a leitura dos zips mensais (com timestamps em microssegundos), a assinatura HMAC (contra o
 exemplo da documentação da Binance) e os fluxos OTOCO e two-step do broker, e as travas de segurança:
 todo registro do dia conta no limite, `--now` só na testnet, ordem conferida contra o plano,
 `status`/`flatten` no mesmo modo do config e `flatten` cancelando só as listas que o broker criou.
+O laboratório tem um teste por regra (cada estratégia faz o que diz num caso sintético) e pela régua:
+modelo de custo, walk-forward só com o passado, Sharpe deflacionado, PBO e custo de equilíbrio contra a
+fórmula fechada.
 
 ## O que foi conferido na documentação oficial
 
@@ -152,7 +219,9 @@ testnet. Em particular:
 ## Limites honestos
 
 - O Time Machine sorteia candles de 5m como se fossem independentes: perde a sequência de
-  volatilidade e as caudas gordas de cripto. É checagem de sanidade, não previsão.
+  volatilidade e as caudas gordas de cripto. O modo em blocos (bootstrap estacionário, trechos
+  seguidos de sessões reais) roda junto e corrige parte disso, mas os dois são checagem de
+  sanidade, não previsão.
 - O backtest separa treino e teste, mas um par e um ano não provam nada. Repita em outros
   pares e períodos antes de acreditar numa combinação.
 - Taxas pesam. Com 0,1% por lado mais slippage, uma faixa de 1% gasta boa parte do risco só
