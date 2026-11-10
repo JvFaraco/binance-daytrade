@@ -1,0 +1,67 @@
+name: painel web
+
+# Testa o motor (Python e o porte em TypeScript) e publica web/ no GitHub Pages.
+# Para publicar: Settings -> Pages -> Source = "GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "scripts/**", "tests/**", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", "scripts/**", "tests/**", ".github/workflows/web.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Testes do motor Python
+        run: python -m unittest discover -s tests
+      - name: Dependências
+        working-directory: web
+        run: npm ci
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+      - name: Tipos
+        working-directory: web
+        run: npm run typecheck
+      - name: Paridade TS x Python (Vitest)
+        working-directory: web
+        run: npm test
+      - name: Build de produção
+        working-directory: web
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: web/dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test-build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

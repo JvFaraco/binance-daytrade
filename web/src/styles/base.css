@@ -1,0 +1,172 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg-0);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-0);
+  color: var(--tx-1);
+  font-family: var(--font);
+  font-size: var(--fs-3);
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "zero" 1;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+canvas {
+  display: block;
+}
+
+/* foco visível em tudo que recebe teclado: âmbar = seleção */
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: var(--signal-dim);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* rótulo padrão: caixa alta pequena com espaçamento */
+.label {
+  font-size: var(--fs-1);
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--tx-3);
+  white-space: nowrap;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tone-pos {
+  color: var(--pos);
+}
+.tone-neg {
+  color: var(--neg);
+}
+.tone-raw {
+  color: var(--raw);
+}
+.tone-signal {
+  color: var(--signal);
+}
+.tone-dim {
+  color: var(--tx-2);
+}
+.tone-mute {
+  color: var(--tx-3);
+}
+
+/* barra de rolagem discreta nas listas internas */
+.scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes flash-pos {
+  from {
+    color: var(--pos);
+    text-shadow: 0 0 8px var(--pos);
+  }
+}
+
+@keyframes flash-neg {
+  from {
+    color: var(--neg);
+    text-shadow: 0 0 8px var(--neg);
+  }
+}
+
+@keyframes lit {
+  from {
+    box-shadow: 0 0 0 1px var(--signal), 0 0 14px var(--signal-dim);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

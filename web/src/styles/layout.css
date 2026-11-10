@@ -1,0 +1,198 @@
+/* Grade do painel: CSS Grid com áreas nomeadas; espaçamento em múltiplos de 4px. */
+.board {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-2);
+  max-width: 1920px;
+  margin: 0 auto;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: auto auto 470px 190px 330px 350px;
+  grid-template-areas:
+    "top   top   top   top    top    top    top    top    top    top   top   top"
+    "ctl   ctl   ctl   ctl    ctl    ctl    ctl    ctl    ctl    ctl   ctl   ctl"
+    "scan  scan  scan  sphere sphere sphere sphere sphere sphere stats stats stats"
+    "scan  scan  scan  sphere sphere sphere sphere sphere sphere plan  plan  plan"
+    "price price price price  price  price  pipe   pipe   pipe   plan  plan  plan"
+    "grid  grid  grid  grid   grid   dumb   dumb   dumb   pareto pareto tape tape";
+}
+
+/* tablet: duas colunas, esfera na largura toda */
+@media (max-width: 1279px) {
+  .board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto 460px auto 420px 300px 360px auto auto;
+    grid-template-areas:
+      "top    top"
+      "ctl    ctl"
+      "sphere sphere"
+      "stats  plan"
+      "scan   price"
+      "scan   pipe"
+      "grid   grid"
+      "dumb   pareto"
+      "tape   tape";
+  }
+}
+
+/* celular: uma coluna, esfera no topo, painéis empilhados e recolhíveis */
+@media (max-width: 719px) {
+  .board {
+    gap: var(--s-2);
+    padding: var(--s-1);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+    grid-template-areas:
+      "top"
+      "sphere"
+      "stats"
+      "ctl"
+      "plan"
+      "pipe"
+      "price"
+      "scan"
+      "grid"
+      "dumb"
+      "pareto"
+      "tape";
+  }
+}
+
+/* ------------------------------------------------------------ barra superior */
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 40px;
+  padding: var(--s-1) var(--s-3);
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.top__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.top__title {
+  font-size: var(--fs-4);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.top__pair {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.top__sym {
+  font-size: var(--fs-4);
+  font-weight: 700;
+  color: var(--signal);
+}
+
+.top__price {
+  font-size: var(--fs-5);
+  font-weight: 500;
+  min-width: 9ch;
+  text-align: right;
+}
+
+/* larguras reservadas: quando o preço e o estado chegam, a barra não muda de tamanho nem empurra a página */
+.top__change {
+  min-width: 11ch;
+}
+
+.top__ws {
+  min-width: 17ch;
+}
+
+@media (min-width: 1280px) {
+  .top {
+    flex-wrap: nowrap;
+    height: 40px;
+  }
+
+  .top__brand {
+    overflow: hidden;
+  }
+
+  .top__right {
+    flex-wrap: nowrap;
+    flex: none;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1519px) {
+  .top__brand .label {
+    display: none;
+  }
+}
+
+.top__right {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+.top__clock {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ controles */
+.ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3) var(--s-6);
+  padding: var(--s-2) var(--s-3);
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+
+.ctl__row {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+@media (max-width: 719px) {
+  .top {
+    gap: var(--s-2);
+  }
+
+  .top__brand .label {
+    display: none;
+  }
+
+  .top__pair {
+    margin-left: 0;
+    width: 100%;
+    order: 3;
+  }
+
+  .top__right {
+    gap: var(--s-2);
+    width: 100%;
+    order: 4;
+  }
+
+  .ctl {
+    gap: var(--s-3) var(--s-4);
+  }
+}

@@ -1,0 +1,62 @@
+/* Design system do painel. Tudo que é cor, tamanho, espaço ou tempo sai daqui.
+   Regra das cores: cada acento tem uma função só e nunca é usado como enfeite.
+     âmbar        = sinal / seleção / foco
+     verde-água   = resultado líquido positivo
+     vermelho     = resultado líquido negativo e recusa do motor (erro, BLOCK do risk)
+     azul frio    = dado bruto, neutro (preço, candle, volume, bruto antes de custo) */
+:root {
+  color-scheme: dark;
+
+  /* superfícies: preto azulado, 4 níveis */
+  --bg-0: #070a10; /* página */
+  --bg-1: #0c111a; /* painel */
+  --bg-2: #121926; /* cabeçalho de painel, elevado */
+  --bg-3: #1a2333; /* hover, campo de entrada */
+  --line-1: #1c2636; /* borda de 1px, baixo contraste */
+  --line-2: #2a3649; /* borda de controle */
+
+  /* texto (contraste sobre --bg-1) */
+  --tx-1: #e6edf7; /* 16,0:1 */
+  --tx-2: #9aa8bd; /*  7,8:1 */
+  --tx-3: #7485a0; /*  5,0:1; não usar sobre --bg-3 */
+
+  /* acentos com função fixa */
+  --signal: #ffb224;
+  --pos: #2dd4bf;
+  --neg: #ff6b78;
+  --raw: #6ea8ff;
+
+  /* os mesmos acentos em preenchimento fraco (fundos de selo, barras, células) */
+  --signal-dim: rgb(255 178 36 / 0.14);
+  --pos-dim: rgb(45 212 191 / 0.14);
+  --neg-dim: rgb(255 107 120 / 0.14);
+  --raw-dim: rgb(110 168 255 / 0.14);
+
+  /* tipografia: uma mono, 6 tamanhos, sem exceções */
+  --font: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --fs-1: 10px; /* rótulo em caixa alta */
+  --fs-2: 11px; /* tabela densa, fita */
+  --fs-3: 12px; /* corpo */
+  --fs-4: 14px; /* Stat */
+  --fs-5: 20px; /* Stat de destaque */
+  --fs-6: 32px; /* número herói */
+  --track: 0.08em; /* letter-spacing dos rótulos */
+
+  /* espaço: múltiplos de 4 */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --radius: 2px;
+  --panel-head: 28px;
+
+  /* movimento: definido uma vez */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 120ms;
+  --t-num: 280ms;
+  --t-panel: 420ms;
+  --stagger: 40ms;
+}

@@ -61,6 +61,26 @@ Referências: Padysak & Vojtko (2022) sobre seasonality/trend em BTC horário; C
 sobre Donchian em cripto líquido de taxas; arXiv 2606.00060 (2026) sobre walk-forward em BTC
 horário, onde só sobrevive quem opera pouco e só com sinal maior que o custo.
 
+## Painel web
+
+`web/` é um painel de **análise** (não envia ordem, não pede chave) que mostra a conclusão acima
+com dados públicos e ao vivo da Binance: scanner, preço com a faixa inicial, os 10.000 replays do
+Time Machine numa esfera, a grade do backtest em treino × teste e o bruto × líquido das estratégias.
+O motor foi portado para TypeScript com testes de paridade contra os scripts Python.
+
+![Painel web](web/docs/painel-desktop.png)
+
+Arrastar o custo de 0 a 0,2% por lado recolore a esfera sem refazer os sorteios:
+
+![Custo zero contra 0,20% por lado](web/docs/custo-0-vs-020.png)
+
+```bash
+cd web && npm ci && npm run dev
+```
+
+Detalhes, o que foi verificado e limites em [`web/README.md`](web/README.md). O workflow
+`.github/workflows/web.yml` testa e publica no GitHub Pages (`/binance-daytrade/`).
+
 ## Testes
 
 ```bash
