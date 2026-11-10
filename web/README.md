@@ -3,6 +3,9 @@
 Painel escuro e denso que mostra, com dados públicos e ao vivo da Binance, a conclusão do
 projeto: **rompimento da faixa inicial não tem vantagem depois das taxas**.
 
+**No ar:** [jvfaraco.github.io/binance-daytrade](https://jvfaraco.github.io/binance-daytrade/)
+([Lite](https://jvfaraco.github.io/binance-daytrade/?modo=lite) · [Pro](https://jvfaraco.github.io/binance-daytrade/?modo=pro)).
+
 **Somente análise.** Nenhuma ordem é enviada, nenhuma chave de API é pedida ou guardada, nenhum
 endpoint assinado é chamado. O `broker.py` não foi portado.
 
