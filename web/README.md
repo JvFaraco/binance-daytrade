@@ -44,6 +44,54 @@ são estados desenhados; não há valor de enfeite.
 Quando o par escolhido não rompeu na sessão atual, o plano vem do **último rompimento do histórico**
 e fica marcado como "replay de dd/mm". O `testplan` do skill não é usado: ele não é um setup.
 
+## Modo Lite
+
+O botão **Lite | Pro** na barra superior alterna entre o painel completo (Pro) e uma versão para quem
+nunca operou. O Lite não mostra outra coisa: mostra a mesma conclusão em frases, com menos dados.
+
+![Modo Lite em 1440 px](docs/lite-desktop.png)
+
+| Bloco do Lite | De onde vem (os mesmos números do Pro) |
+| --- | --- |
+| Veredito | R médio líquido dos 10.000 replays e o histórico real da regra |
+| Quantas vezes dá certo | alvo / stop / aberto, acerto contra o acerto que empata, ganho e perda da ordem em dinheiro |
+| Quanto o custo pesa | o mesmo controle de custo e o R de empate (o anel "empate" da esfera) |
+| E se mudar a regra? | as duas contagens do relatório do backtest sobre as 96 combinações |
+| Agora | par, estado do sinal de hoje em frase e o gráfico de preço |
+
+O que o Lite esconde: scanner, pipeline, esfera, percentis, drawdown, OTOCO, checagens de risco, mapa da
+grade, halteres, Pareto, fita, telemetria e os controles da regra (ele usa a regra que estiver configurada
+e diz qual é).
+
+Garantias, todas cobertas por teste:
+
+- **Mesmos números.** Os dois modos leem as mesmas stores e as mesmas funções derivadas, com a mesma
+  formatação. `tests/lite.dom.test.tsx` renderiza os dois com o mesmo estado, compara 12 números entre
+  eles em cinco custos diferentes e confere os principais contra o motor calculado à parte.
+- **Veredito sem maquiagem.** Resultado negativo abre o bloco dizendo que perdeu dinheiro. Resultado
+  positivo nunca fica verde nem vira promessa: o título diz que isso sozinho não prova nada.
+- **O que o Lite não mostra não pesa.** Os painéis do Pro e o three.js ficam em pedaços carregados sob
+  demanda (Lite: 125 KiB de JavaScript transferido). No Lite o worker não monta os buffers da esfera, não
+  roda a pesquisa nem o Pareto, e só o par escolhido é acompanhado ao vivo (1 pedido de candles em vez de
+  um por par). Abrir o Pro carrega o resto sem recarregar a página; os replays são refeitos com a mesma
+  seed só para gravar os caminhos da esfera.
+- **Modo na URL e salvo.** `?modo=lite` ou `?modo=pro` vence o valor salvo, que vence o padrão (Lite na
+  primeira visita). Modo, par, custo e período ficam no `localStorage` do navegador; nada mais é guardado.
+
+![Modo Lite em 375 px](docs/lite-celular.png)
+
+Frases em que foi preciso escolher entre simples e exato:
+
+- "Perde-se em média 61% do valor arriscado" é o mesmo −0,61R. "Valor arriscado" é a distância entre a
+  entrada e o stop; a perda real num stop é maior (1R mais os custos), e isso aparece na frase em dinheiro.
+- As porcentagens não viram "de cada 100": ficam com a mesma casa decimal do Pro (28,2%).
+- "Quantas continuaram positivas no período seguinte" é o teste fora da amostra; "treino" e "teste" estão
+  no glossário.
+- "Custo em cada compra e em cada venda" junta taxa e slippage; a linha de baixo separa os dois, chamando
+  slippage de "diferença de preço na execução".
+- "Hoje" nas frases de estado quer dizer a sessão atual, que começa na âncora (13:00 UTC por padrão), não
+  o dia do calendário.
+
 ## A esfera e o controle de custo
 
 ![Custo zero contra 0,20% por lado](docs/custo-0-vs-020.png)
@@ -98,7 +146,9 @@ src/workers/    Web Worker: pedidos, cache, 10.000 replays, grade e pesquisa
 src/app/        controlador do pipeline, dados de alta frequência, formatação
 src/state/      stores zustand por assunto (um tick do WS não re-renderiza a árvore)
 src/ui/         Panel, Stat, Sparkline, Meter, Badge, Tooltip, LiveDot, Skeleton, número vivo
-src/panels/     os painéis
+src/panels/     os painéis do Pro (e o que os dois modos compartilham: barra, custo, gráfico)
+src/lite/       o modo Lite: tela e frases
+src/ProBoard.tsx  o Pro inteiro, num pedaço carregado sob demanda
 src/sphere/     geometria e cena three.js (carregada sob demanda)
 src/styles/     tokens.css (design system), base e grade
 ```
@@ -125,7 +175,10 @@ duas colunas, celular com a esfera no topo e painéis recolhíveis.
 
 ## O que foi verificado
 
-- Lint, tipos, 90 testes Vitest (paridade, peças do painel e fluxo ao vivo), 66 testes Python e build de produção.
+- Lint, tipos, 107 testes Vitest (paridade, peças do painel, fluxo ao vivo e modo Lite), 66 testes Python e build de produção.
+- Modo Lite no Chromium contra a Binance real, em 1440 e 375 px: sem scroll horizontal, sem erro de console,
+  nenhum pedido de three.js nem do pedaço do Pro; troca Lite → Pro → Lite sem recarregar, com os mesmos
+  números, e `?modo=` vencendo o valor salvo. Lighthouse do Lite: 99 a 100 / 100 / 100.
 - Paridade exata também com 120 dias de candles reais de BTCUSDT e SOLUSDT (replays, grade, pesquisa).
 - App rodando no Chromium (Playwright) contra a Binance real: screenshots em 1440, 1024 e 390 px,
   sem scroll horizontal e sem erro de console; troca de par, de período (3 → 12 meses, e de novo

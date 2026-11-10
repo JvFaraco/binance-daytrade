@@ -70,6 +70,14 @@ O motor foi portado para TypeScript com testes de paridade contra os scripts Pyt
 
 ![Painel web](web/docs/painel-desktop.png)
 
+### Modo Lite
+
+Quem nunca operou abre no **modo Lite**: a mesma conclusão em frases, com menos dados. O botão
+**Lite | Pro** na barra alterna os dois sem recarregar, e os números são os mesmos. Dá para mandar o
+link já no modo certo com `?modo=lite` ou `?modo=pro`.
+
+![Modo Lite](web/docs/lite-desktop.png)
+
 Arrastar o custo de 0 a 0,2% por lado recolore a esfera sem refazer os sorteios:
 
 ![Custo zero contra 0,20% por lado](web/docs/custo-0-vs-020.png)
