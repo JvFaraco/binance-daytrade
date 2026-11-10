@@ -1,0 +1,260 @@
+/* Estilos dos painéis. Só composição: cores, tamanhos e tempos vêm de tokens.css. */
+
+/* ------------------------------------------------------------ scanner */
+.scan__counts {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line-1);
+}
+
+.scan__count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: var(--fs-4);
+  font-weight: 500;
+}
+
+.scan__boot,
+.scan__foot {
+  flex: none;
+  padding: var(--s-2) var(--s-3);
+  white-space: normal;
+}
+
+.scan__foot {
+  border-top: 1px solid var(--line-1);
+}
+
+.scan__head,
+.scan__row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 46px 44px 74px;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-3);
+}
+
+.scan__head {
+  flex: none;
+  height: 22px;
+  border-bottom: 1px solid var(--line-1);
+}
+
+.scan__head > span:not(:first-child) {
+  text-align: right;
+}
+
+.scan__list {
+  flex: 1;
+  min-height: 0;
+}
+
+.scan__row {
+  width: 100%;
+  height: 24px;
+  font-size: var(--fs-2);
+  text-align: left;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid var(--line-1);
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.scan__row:hover {
+  background: var(--bg-2);
+}
+
+.scan__row[aria-pressed="true"] {
+  background: var(--signal-dim);
+  border-left-color: var(--signal);
+}
+
+.scan__row:focus-visible {
+  outline-offset: -2px;
+}
+
+.scan__sym {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scan__num {
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.scan__state {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ------------------------------------------------------------ preço */
+.price__chart {
+  flex: 1;
+  min-height: 160px;
+  position: relative;
+}
+
+.price__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.price__read {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  padding: var(--s-2) var(--s-3);
+  border-top: 1px solid var(--line-1);
+}
+
+.price__status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 150px;
+  font-size: var(--fs-2);
+}
+
+/* ------------------------------------------------------------ pipeline */
+.pipe {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-2) var(--s-3);
+  min-height: 0;
+}
+
+.pipe__stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 12px 12px minmax(0, 1fr);
+  gap: var(--s-2);
+  align-items: start;
+  position: relative;
+  min-height: 40px;
+  padding: var(--s-1) 0;
+}
+
+.pipe__idx {
+  padding-top: 2px;
+}
+
+.pipe__node {
+  width: 8px;
+  height: 8px;
+  margin: 4px 2px 0;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  background: var(--bg-3);
+  position: relative;
+  transition: background-color var(--t-num) var(--ease-out), border-color var(--t-num) var(--ease-out), box-shadow var(--t-num) var(--ease-out);
+}
+
+/* a linha que liga uma etapa à próxima */
+.pipe__node::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 9px;
+  width: 1px;
+  height: 200px;
+  max-height: calc(100% + 40px);
+  background: var(--line-2);
+}
+
+.pipe__stage {
+  overflow: hidden;
+}
+
+.pipe__stage:last-child .pipe__node::after {
+  display: none;
+}
+
+.pipe__stage[data-status="done"] .pipe__node {
+  background: var(--raw);
+  border-color: var(--raw);
+}
+
+.pipe__stage[data-status="running"] .pipe__node {
+  background: var(--signal);
+  border-color: var(--signal);
+  box-shadow: 0 0 10px var(--signal);
+}
+
+.pipe__stage[data-status="error"] .pipe__node {
+  background: var(--neg);
+  border-color: var(--neg);
+}
+
+.pipe__stage.is-lit .pipe__node {
+  animation: lit 900ms var(--ease-out);
+}
+
+.pipe__stage.is-lit .pipe__name {
+  animation: flash-signal 900ms var(--ease-out);
+}
+
+@keyframes flash-signal {
+  from {
+    color: var(--signal);
+    text-shadow: 0 0 10px var(--signal);
+  }
+}
+
+.pipe__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pipe__line1 {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.pipe__name {
+  font-size: var(--fs-3);
+  font-weight: 700;
+}
+
+.pipe__ms {
+  margin-left: auto;
+  font-size: var(--fs-2);
+  color: var(--tx-2);
+}
+
+.pipe__note {
+  font-size: var(--fs-2);
+  color: var(--tx-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pipe__stage[data-status="error"] .pipe__note {
+  color: var(--neg);
+  white-space: normal;
+}
+
+.pipe__stage--off .pipe__name {
+  color: var(--tx-3);
+  text-decoration: line-through;
+}
+
+.pipe__stage--off .pipe__node {
+  border-style: dashed;
+  background: none;
+}
