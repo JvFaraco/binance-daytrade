@@ -9,6 +9,8 @@ interface Props {
   /** pisca a casa que mudou na cor do sentido; desligue para valores sem direção */
   flash?: boolean;
   className?: string;
+  /** nome do número: o mesmo nome no Pro e no Lite tem de mostrar o mesmo texto */
+  num?: string;
 }
 
 function easeOut(t: number): number {
@@ -19,7 +21,7 @@ function easeOut(t: number): number {
  * Número vivo: interpola até o novo valor em ~280 ms em vez de pular, e a casa que mudou pisca
  * de leve em verde (subiu) ou vermelho (caiu). Atualiza o DOM direto: nenhum re-render por quadro.
  */
-export const AnimatedNumber = memo(function AnimatedNumber({ value, format, empty = "—", flash = true, className }: Props) {
+export const AnimatedNumber = memo(function AnimatedNumber({ value, format, empty = "—", flash = true, className, num }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const shown = useRef<number | null>(null);
   const finalText = useRef<string>("");
@@ -91,5 +93,5 @@ export const AnimatedNumber = memo(function AnimatedNumber({ value, format, empt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, empty, flash]);
 
-  return <span ref={ref} className={"anum num" + (className ? " " + className : "")} />;
+  return <span ref={ref} className={"anum num" + (className ? " " + className : "")} data-num={num} />;
 });

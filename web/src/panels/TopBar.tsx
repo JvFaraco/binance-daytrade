@@ -1,10 +1,12 @@
 // Barra superior: par escolhido, preço, relógio e o aviso permanente de que nada é enviado.
 import { useEffect, useState } from "react";
 import { live } from "../app/live";
+import { preloadPro } from "../app/proChunk";
+import { type Mode, setMode, useMode } from "../state/mode";
 import * as fmt from "../app/format";
 import { useSettings } from "../state/settings";
 import { useMarket, useTelemetry } from "../state/stores";
-import { AnimatedNumber, Badge, LiveDot } from "../ui";
+import { AnimatedNumber, Badge, LiveDot, Segmented } from "../ui";
 
 function Clock() {
   const [t, setT] = useState(() => Date.now() + live.offset);
@@ -19,6 +21,24 @@ function Clock() {
       <span className="num tone-dim">{fmt.hhmmss(t)}</span>
       <span className="label">BRT</span>
     </div>
+  );
+}
+
+const MODES: Array<{ value: Mode; label: string }> = [
+  { value: "lite", label: "Lite" },
+  { value: "pro", label: "Pro" },
+];
+
+/** Lite (para quem nunca operou) ou Pro (tudo). Os dois mostram os mesmos números. */
+function ModeSwitch() {
+  const mode = useMode((s) => s.mode);
+  return (
+    <span className="top__mode" onPointerEnter={preloadPro} onFocus={preloadPro}>
+      <span className="label" aria-hidden="true">
+        modo
+      </span>
+      <Segmented<Mode> label="Modo do painel: Lite mostra o essencial em linguagem simples; Pro mostra todos os dados" value={mode} options={MODES} onChange={setMode} />
+    </span>
   );
 }
 
@@ -41,6 +61,7 @@ export function TopBar() {
         </span>
         <span className="top__change tone-dim num">{change !== undefined ? `${fmt.signedPct(change)} 24h` : ""}</span>
       </div>
+      <ModeSwitch />
       <div className="top__right">
         <Clock />
         <span className="top__ws">

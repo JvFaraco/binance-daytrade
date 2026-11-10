@@ -70,7 +70,8 @@ export interface TimeMachineResult {
   len: Uint16Array;
   pathLen: number;
   history: HistoryTrade[];
-  sphere: SphereBuffers;
+  /** null quando a esfera não foi pedida (modo Lite): os números são os mesmos, só não há desenho */
+  sphere: SphereBuffers | null;
   /** tempo só dos replays, em ms */
   mcMs: number;
 }

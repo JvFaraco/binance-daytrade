@@ -2,18 +2,18 @@
 // Worker do motor: todo pedido à API pública, o cache em IndexedDB e o cálculo pesado
 // (10.000 replays, grade do backtest, pesquisa) rodam aqui, fora da thread da interface.
 import { evaluateTrades } from "../engine/backtest";
-import { type Bar, type KlineRow, ApiError, DAY, HOUR, TraderError, closedOnly, orbSignal, parseKlines } from "../engine/core";
+import { type Bar, type KlineRow, ApiError, HOUR, TraderError, orbSignal, parseKlines } from "../engine/core";
 import { buildPlan } from "../engine/plan";
 import { rejectionReport } from "../engine/rejections";
 import { researchRaw } from "../engine/research";
 import { type Ticker, slimTickers } from "../engine/scan";
 import type { ExchangeInfo } from "../engine/size";
-import { completeSessions, fullSessions, historyTrades, runMcRaw } from "../engine/timemachine";
+import { completeSessions } from "../engine/timemachine";
 import { loadHistory } from "../data/history";
 import { STORE_KV, idbGet, idbSet } from "../data/idb";
 import { packBars } from "../data/pack";
 import { BinanceRest } from "../data/rest";
-import { buildSphereBuffers } from "../sphere/geometry";
+import { timeMachineJob } from "./jobs";
 import type { Progress, Request, ResponseMap, WorkerIn, WorkerOut } from "./protocol";
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
@@ -129,46 +129,7 @@ const handlers: { [K in Request["type"]]: Handler<K> } = {
   },
 
   async timemachine(req, progress) {
-    const { plan } = req;
-    const from = req.tmNow - req.days * DAY;
-    const bars = closedOnly(
-      barsOf(req.symbol).filter((b) => b.t >= from),
-      req.tmNow,
-    );
-    const sessions = fullSessions(bars, plan.params, plan.session_start);
-    if (sessions.length < 20) {
-      throw new TraderError(`só ${sessions.length} sessões completas no histórico (mínimo 20). Aumente o período.`);
-    }
-    const t0 = performance.now();
-    const raw = runMcRaw(plan, sessions, req.replays, req.seed, req.window, {
-      recordPaths: true,
-      progressEvery: 1000,
-      onProgress: (done, total) => progress({ done, total, note: "replays" }),
-    });
-    const mcMs = performance.now() - t0;
-    const sphere = buildSphereBuffers(raw, plan.target_r, req.maxDraw);
-    const data: ResponseMap["timemachine"] = {
-      sessions: sessions.length,
-      from,
-      to: req.tmNow,
-      replays: raw.replays,
-      seed: raw.seed,
-      window: req.window,
-      entry: raw.entry,
-      stop: raw.stop,
-      target: raw.target,
-      exit: raw.exit,
-      outcome: raw.outcome,
-      len: raw.len,
-      pathLen: raw.pathLen,
-      history: historyTrades(plan, sessions),
-      sphere,
-      mcMs,
-    };
-    return {
-      data,
-      transfer: [raw.exit.buffer, raw.outcome.buffer, raw.len.buffer, sphere.points.buffer, sphere.index.buffer, sphere.pathReplay.buffer, sphere.pathStart.buffer, sphere.pathCount.buffer],
-    };
+    return timeMachineJob(barsOf(req.symbol), req, progress);
   },
 
   async grid(req, progress) {

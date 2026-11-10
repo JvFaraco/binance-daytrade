@@ -1,0 +1,197 @@
+/* Modo Lite: uma tela só, com os mesmos tokens e os mesmos componentes do Pro.
+   Poucas palavras, texto maior; nenhuma cor nova. */
+.board[data-mode="lite"] {
+  max-width: 620px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  grid-template-areas:
+    "top"
+    "verdict"
+    "cost"
+    "vary"
+    "foot";
+}
+
+/* a barra do Lite é estreita: quebra em duas linhas de propósito, com altura estável */
+.board[data-mode="lite"] .top {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 76px;
+  row-gap: var(--s-1);
+}
+
+.board[data-mode="lite"] .top__brand .label,
+.board[data-mode="lite"] .top__ws,
+.board[data-mode="lite"] .top__clock {
+  display: none;
+}
+
+.board[data-mode="lite"] .top__right {
+  width: 100%;
+}
+
+.board[data-mode="lite"] .panel__title {
+  font-size: var(--fs-2);
+}
+
+.board[data-mode="lite"] .panel__toggle {
+  display: none;
+}
+
+.board[data-mode="lite"] .panel__head {
+  height: 34px;
+}
+
+/* alturas reservadas: quando os números chegam, os blocos de baixo não pulam */
+.board[data-mode="lite"] [data-area="verdict"] {
+  min-height: 204px;
+}
+
+.board[data-mode="lite"] [data-area="vary"] {
+  min-height: 134px;
+}
+
+@media (max-width: 719px) {
+  .board[data-mode="lite"] [data-area="verdict"] {
+    min-height: 300px;
+  }
+
+  .board[data-mode="lite"] [data-area="vary"] {
+    min-height: 190px;
+  }
+}
+
+.lite__pair {
+  height: 24px;
+}
+
+.lite__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  min-width: 0;
+  flex: 1;
+}
+
+.lite__body .cost {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* resultado de outro período ou par ainda na tela enquanto o novo carrega */
+.lite__body[data-stale="true"] .lite__count {
+  opacity: 0.35;
+}
+
+.lite__title {
+  font-size: var(--fs-5);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--tx-1);
+  padding-left: var(--s-3);
+  border-left: 3px solid var(--neg);
+}
+
+.lite__title[data-tone="mixed"] {
+  border-left-color: var(--signal);
+}
+
+.lite__hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-2) var(--s-4);
+}
+
+.lite__hero .lite__text {
+  flex: 1 1 220px;
+  padding-bottom: 4px;
+}
+
+.lite__text {
+  font-size: var(--fs-4);
+  line-height: 1.5;
+  color: var(--tx-1);
+  overflow-wrap: anywhere;
+}
+
+.lite__text--dim {
+  font-size: var(--fs-3);
+  color: var(--tx-2);
+}
+
+.lite__bar {
+  height: 10px;
+}
+
+.lite__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-4);
+  font-size: var(--fs-3);
+  color: var(--tx-2);
+}
+
+.lite__legend li {
+  white-space: nowrap;
+}
+
+.lite__legend b {
+  color: var(--tx-1);
+  font-weight: 700;
+}
+
+/* o mesmo tom de cada trecho da barra acima */
+.lite__sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: var(--radius);
+  background: var(--raw);
+}
+
+.lite__sw[data-k="open"] {
+  opacity: 0.45;
+}
+
+.lite__sw[data-k="stop"] {
+  opacity: 0.22;
+}
+
+.lite__count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-1) var(--s-3);
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.lite__count b {
+  font-size: var(--fs-6);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.lite__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-1);
+  min-width: 0;
+}
+
+.lite__foot .lite__text {
+  flex: 1 1 240px;
+}
+
+.lite__foot .btn {
+  height: 32px;
+  flex: none;
+}

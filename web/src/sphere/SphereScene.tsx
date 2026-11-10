@@ -9,7 +9,7 @@ import * as fmt from "../app/format";
 import { useSettings } from "../state/settings";
 import { prefersReducedMotion } from "../ui/motion";
 import { tokens } from "../ui/useCanvas";
-import { LAT_MAX, POINT_STRIDE, SWEEP, type SphereBuffers, latitudeOf, pointOnSphere } from "./geometry";
+import { LAT_MAX, POINT_STRIDE, SWEEP, type SphereBuffers, breakevenR, latitudeOf, pointOnSphere } from "./geometry";
 import { useSphereHover } from "./hover";
 
 export interface SceneProps {
@@ -216,8 +216,7 @@ function Rings({ k, targetR, rScale, labels }: { k: number; targetR: number; rSc
     const target = useSettings.getState().cost_pct / 100;
     cost.current = Math.abs(target - cost.current) < 1e-7 ? target : cost.current + (target - cost.current) * Math.min(1, dt * 14);
     const c = cost.current;
-    // R bruto que empata: net = g(1-c) - cK = 0
-    const g = (c * k) / (1 - c);
+    const g = breakevenR(k, c);
     const lat = latitudeOf(g, rScale);
     objects.even.position.y = Math.sin(lat);
     objects.even.scale.set(Math.cos(lat), 1, Math.cos(lat));

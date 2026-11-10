@@ -76,6 +76,11 @@
   outline-offset: -2px;
 }
 
+/* a linha selecionada tem fundo mais claro: o selo apagado precisa de texto mais forte para passar AA */
+.scan__row[aria-pressed="true"] .badge[data-tone="mute"] {
+  color: var(--tx-2);
+}
+
 .scan__sym {
   font-weight: 500;
   white-space: nowrap;
